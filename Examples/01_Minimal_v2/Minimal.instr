@@ -1,0 +1,93 @@
+/************************************************
+*
+* McStas model of the source from the DMC powder diffractometer at PSI, CH.
+*
+* %Identification
+* Written by: Peter Willendrup (Risoe), Uwe Filges (PSI), Lukas Keller (PSI)
+* 
+* Date: May 7th, 2008
+* Origin:PSI
+* %INSTRUMENT_SITE: PSI
+*
+* McStas model of the DMC powder diffractometer at PSI, CH.
+*
+* %Description
+* McStas model of the DMC powder diffractometer at PSI, CH.
+*
+* Please note that this instrument file does not include the radial collimator of DMC. 
+* To generate the full 800-bin angle coverage at DMC, you should combine two simulations
+* using this instrumentfile, with SHIFT=0 and 0.1. This will displace the detector by half
+* a bin-width, which is a standard procedure at the DMC diffractometer
+*
+* %Example: lambda=2.5666 Detector: PSDbefore_guides_I=2.54332e+09
+*
+* %Parameters
+* lambda: [AA]     Choice of wavelength, affects both monochromator and source component
+* R: [1]           Reflectivity of non-curved guides
+* R_curve: [1]     Reflectivity of curved guides
+* filename: [str]  Choice of reflection list file, e.g. from McStas data dir
+* D_PHI: [deg]     Focusing 'd_phi' for PowderN, see mcdoc page
+* SHIFT: [deg]     Rotation of detector, set to 0.1 to displace by half a bin
+* PACK: [1]        Powder packing factor
+* Dw: [1]          Powder Debye-Waller factor
+* BARNS: [1]       Flag to define if powder reflection file |F2| is in Barns or fm
+*
+* %Link
+* The <a href="http://lns00.psi.ch/montecarlo/">PSI Monte-Carlo</a> website.
+* %Link
+* P Willendrup, U Filges, L Keller, E Farhi, K Lefmann: Validation of a realistic powder sample using data from DMC at PSI, ICNS 2005 (Physica B, 386, (2006), 1032.)
+*
+* %End
+***************************************************/
+DEFINE INSTRUMENT PSI_source(lambda=2.5666, int Source=0)
+
+DECLARE
+%{
+  double ldiff=0.05;
+  double L_N[128];
+  double L_p[128];
+  double L_p2[128];
+  #pragma acc declare create(L_N,L_p,L_p2)
+%}
+
+INITIALIZE
+%{
+%}
+
+TRACE
+
+COMPONENT source_arm = Arm()
+AT (0, 0, 0) ABSOLUTE
+
+COMPONENT source0 = Source_Maxwell_3(
+        yheight=0.156, xwidth=0.126,
+	      Lmin=lambda-ldiff/2,Lmax=lambda+ldiff/2,
+        dist=1.5, focus_xw = 0.02, focus_yh = 0.12,
+        T1=296.16, I1=8.5E11,
+        T2=40.68, I2=5.2E11)    
+WHEN (Source==0) AT (0,0,0) RELATIVE source_arm  ROTATED (0,0,0) RELATIVE source_arm
+
+COMPONENT source = Source_simple(
+        yheight=0.156, xwidth=0.126,
+	lambda0=lambda,dlambda=ldiff,
+        dist=1.5, focus_xw = 0.02, focus_yh = 0.12)
+WHEN (Source==1) AT (0,0,0) RELATIVE source_arm  ROTATED (0,0,0) RELATIVE source_arm
+
+COMPONENT ZeroD = Monitor(
+    xwidth = 0.025, yheight = 0.125)
+AT (0, 0, 1.5) RELATIVE source_arm
+
+COMPONENT Lmon_before_guides = L_monitor(
+    nL = 128, filename = "Lsource",
+    Lmin=0, Lmax=lambda+ldiff/2,
+    xwidth = 0.025, yheight = 0.125)
+AT (0, 0, 1.5) RELATIVE source_arm
+
+COMPONENT PSDbefore_guides = PSD_monitor(
+    nx = 128, ny = 128, filename = "PSDbefore_guides",
+    xwidth = 0.025, yheight = 0.125)
+AT (0, 0, 1.5) RELATIVE source_arm
+
+END  
+
+

@@ -1,0 +1,59 @@
+{
+  "configuration": {
+    "MCCODE_VERSION": "3.99.99",
+    "TERMINAL": "x-terminal-emulator -e",
+    "MCCOGEN": "mcstas",
+    "MCCODE": "mcstas",
+    "MCRUN": "mcrun",
+    "JUPYLAB": "mcstas-jupylab",
+    "MCPLOT": "mcplot-pyqtgraph",
+    "MCDISPLAY": "mcdisplay-webgl",
+    "IDFGEN": "mcdisplay-mantid",
+    "HDFVIEW": "nexpy",
+    "TOOL_NAME": "mcgui",
+    "PARTICLE": "neutron",
+    "BROWSER": "xdg-open",
+    "GUICOLS": "3",
+    "GUIFONTSIZE": "12",
+    "GUILOGCOLOR": "blue",
+    "GUIINFOCOLOR": "green",
+    "GUIERRCOLOR": "red",
+    "NDBUFFERSIZE": "10000000",
+    "EDITOR": "gedit",
+    "FORMAT": "McCode",
+    "ISCONDAPKG": "1",
+    "MCCODE_LIB_DIR": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources"
+  },
+  "compilation": {
+    "CFLAGS": "-march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /home/willend/micromamba/envs/mcstas-dev/include -O2 -g -DNDEBUG -I/home/willend/micromamba/envs/mcstas-dev/include -Wl,-rpath,/home/willend/micromamba/envs/mcstas-dev/lib -L/home/willend/micromamba/envs/mcstas-dev/lib -fno-PIC -fPIE -flto -O3 -march=native -fno-math-errno -ftree-vectorize -g -DNDEBUG -D_POSIX_SOURCE -std=c99 -lm",
+    "NEXUSFLAGS": "-Wl,-rpath,/home/willend/micromamba/envs/mcstas-dev/lib -L/home/willend/micromamba/envs/mcstas-dev/lib -DUSE_NEXUS -I/home/willend/micromamba/envs/mcstas-dev/include/nexus -Wl,-rpath,/home/willend/micromamba/envs/mcstas-dev/lib -L/home/willend/micromamba/envs/mcstas-dev/lib -lNeXus -I/home/willend/micromamba/envs/mcstas-dev/include/nexus",
+    "MPIFLAGS": "-DUSE_MPI -lmpi",
+    "GSLFLAGS": "-I${CONDA_PREFIX}/include -Wl,-rpath,${CONDA_PREFIX}/lib -L${CONDA_PREFIX}/lib -lgsl -lgslcblas",
+    "NCRYSTALFLAGS": "CMD(ncrystal-config --show buildflags)",
+    "MCPLFLAGS": "CMD(mcpl-config --show buildflags)",
+    "XRLFLAGS": "-I${CONDA_PREFIX}/include -Wl,-rpath,${CONDA_PREFIX}/lib -L${CONDA_PREFIX}/lib -lxrl",
+    "OACCFLAGS": "-fast -Minfo=accel -acc=gpu -gpu=mem:managed -DOPENACC",
+    "CC": "/home/willend/micromamba/envs/mcstas-dev/bin/x86_64-conda-linux-gnu-cc",
+    "OACC": "nvc",
+    "MPICC": "mpicc",
+    "MPIRUN": "mpirun",
+    "MPINODES": "auto",
+    "CLINT": "cppcheck",
+    "CLINTERFLAGS": "--check-level=exhaustive --force -DMCDEFAULT_NCOUNT=1000000 -UMC_PORTABLE -DND_BUFFER=10000000 -UNOABSORB_INF_NAN -UOMPI_MPI_H -DSIGABRT -DSIGBREAK -DSIGBUS -DSIGPE -DSIGHUP -DSIGILL -DSIGINT -DSIGKILL -DSIGUSR1 -DSIGUSR2 -DSIGPIPE -DSIGQUIT -DSIGSEGV -DSIGTRAP -DSIGURG -DSIGFPE -DSIGKILL -DSIGTERM -UTEST -UUSE_OPENCL -UWIN32 -UOPENACC -UGCCOFFLOAD -U_MSC_VER -U_MSC_EXTENSIONS -U_WIN32 -UWIN32 -D__unix__ -UDANSE -UFUNNEL -UMC_ANCIENT_COMPATIBILITY -UMC_POL_COMPAT -UNEUTRONICS -Uisnan -Uisinf"
+  },
+  "platform": {
+    "EXESUFFIX": "out"
+  },
+  "directories": {
+    "bindir": "/home/willend/micromamba/envs/mcstas-dev/bin",
+    "libdir": "/home/willend/micromamba/envs/mcstas-dev/lib",
+    "docdir": "/home/willend/micromamba/envs/mcstas-dev/share/doc/mcstas",
+    "tooldir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/tools",
+    "resourcedir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources",
+    "pydir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/tools/Python",
+    "datadir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources/data",
+    "sharedir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources/share",
+    "compdir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources",
+    "exampledir": "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources/examples"
+  }
+}

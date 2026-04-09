@@ -1,0 +1,290 @@
+INFO: No output directory specified (--dir)
+INFO: Using directory: "Minimal_20260409_194441"
+INFO: Regenerating c-file: Minimal.c
+DEBUG: CMD: /home/willend/micromamba/envs/mcstas-dev/bin/mcstas -t -o ./Minimal.c Minimal.instr
+CFLAGS=
+
+-----------------------------------------------------------
+
+Generating single GPU kernel or single CPU section layout: 
+
+-----------------------------------------------------------
+
+Generating GPU/CPU -DFUNNEL layout:
+
+-----------------------------------------------------------
+DEBUG: CMD: /home/willend/micromamba/envs/mcstas-dev/bin/mcstas finished
+INFO: Recompiling: ./Minimal.out
+DEBUG: CMD: nvc -o ./Minimal.out ./Minimal.c -lm -Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,--allow-shlib-undefined -Wl,-rpath,/home/willend/micromamba/envs/mcstas-dev/lib -Wl,-rpath-link,/home/willend/micromamba/envs/mcstas-dev/lib -L/home/willend/micromamba/envs/mcstas-dev/lib -mtune=haswell -fPIC -O2 -isystem /home/willend/micromamba/envs/mcstas-dev/include -fast -Minfo=accel -acc=gpu -DOPENACC
+"./Minimal.c", line 4179: warning: variable "exists" was set but never used [set_but_not_used]
+      int exists=0;
+          ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"./Minimal.c", line 4637: warning: variable "num" was declared but never referenced [declared_but_not_referenced]
+          int num = 3;
+              ^
+
+"./Minimal.c", line 6343: warning: variable "status" was set but never used [set_but_not_used]
+        int status;
+            ^
+
+"./Minimal.c", line 7261: warning: variable "tc2" was set but never used [set_but_not_used]
+      Coords tc1, tc2;
+                  ^
+
+"./Minimal.c", line 7258: warning: variable "current_setpos_index" was declared but never referenced [declared_but_not_referenced]
+    int current_setpos_index = 1;
+        ^
+
+"./Minimal.c", line 7302: warning: variable "current_setpos_index" was declared but never referenced [declared_but_not_referenced]
+    int current_setpos_index = 2;
+        ^
+
+"./Minimal.c", line 7386: warning: variable "current_setpos_index" was declared but never referenced [declared_but_not_referenced]
+    int current_setpos_index = 3;
+        ^
+
+"./Minimal.c", line 7463: warning: variable "current_setpos_index" was declared but never referenced [declared_but_not_referenced]
+    int current_setpos_index = 4;
+        ^
+
+"./Minimal.c", line 7528: warning: variable "current_setpos_index" was declared but never referenced [declared_but_not_referenced]
+    int current_setpos_index = 5;
+        ^
+
+"./Minimal.c", line 7606: warning: variable "current_setpos_index" was declared but never referenced [declared_but_not_referenced]
+    int current_setpos_index = 6;
+        ^
+
+"./Minimal.c", line 8128: warning: variable "tau_l" was declared but never referenced [declared_but_not_referenced]
+    double v,tau_l,E,lambda,k,r,xf,yf,dx,dy,w_focus;
+             ^
+
+"./Minimal.c", line 8128: warning: variable "E" was declared but never referenced [declared_but_not_referenced]
+    double v,tau_l,E,lambda,k,r,xf,yf,dx,dy,w_focus;
+                   ^
+
+"./Minimal.c", line 9645: warning: variable "t" was declared but never referenced [declared_but_not_referenced]
+    time_t  t;
+            ^
+
+"./Minimal.c", line 9646: warning: variable "ct" was set but never used [set_but_not_used]
+    clock_t ct;
+            ^
+
+"./Minimal.c", line 1504: warning: variable "mcstartdate" was set but never used [set_but_not_used]
+  static   long mcstartdate            = 0; /* start simulation time */
+                ^
+
+"./Minimal.c", line 2974: warning: function "strcpy_valid" was declared but never referenced [declared_but_not_referenced]
+  static char *strcpy_valid(char *valid, char *original)
+               ^
+
+mcgenstate:
+    100, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_getvar:
+    114, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_getvar_void:
+    146, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_setvar_void:
+    170, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_setvar_void_array:
+    192, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_restore:
+    203, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_getuservar_byid:
+    212, Generating acc routine seq
+         Generating NVIDIA GPU code
+particle_uservar_init:
+    222, Generating acc routine seq
+         Generating NVIDIA GPU code
+noprintf:
+   1553, Generating acc routine seq
+         Generating NVIDIA GPU code
+str_comp:
+   1557, Generating acc routine seq
+         Generating NVIDIA GPU code
+str_len:
+   1566, Generating acc routine seq
+         Generating NVIDIA GPU code
+mcget_ncount:
+   4255, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_set:
+   4689, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_get:
+   4700, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_add:
+   4709, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_sub:
+   4721, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_neg:
+   4733, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_scale:
+   4743, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_sp:
+   4753, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_xp:
+   4761, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_len:
+   4771, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_print:
+   4793, Generating acc routine seq
+         Generating NVIDIA GPU code
+coords_norm:
+   4800, Generating acc routine seq
+         Generating NVIDIA GPU code
+rot_set_rotation:
+   4846, Generating acc routine seq
+         Generating NVIDIA GPU code
+rot_test_identity:
+   4881, Generating acc routine seq
+         Generating NVIDIA GPU code
+rot_mul:
+   4892, Generating acc routine seq
+         Generating NVIDIA GPU code
+rot_copy:
+   4909, Generating acc routine seq
+         Generating NVIDIA GPU code
+rot_transpose:
+   4920, Generating acc routine seq
+         Generating NVIDIA GPU code
+rot_apply:
+   4936, Generating acc routine seq
+         Generating NVIDIA GPU code
+vec_prod_func:
+   4965, Generating acc routine seq
+         Generating NVIDIA GPU code
+scalar_prod:
+   4976, Generating acc routine seq
+         Generating NVIDIA GPU code
+norm_func:
+   4980, Generating acc routine seq
+         Generating NVIDIA GPU code
+mccoordschange:
+   5157, Generating acc routine seq
+         Generating NVIDIA GPU code
+mccoordschange_polarisation:
+   5188, Generating acc routine seq
+         Generating NVIDIA GPU code
+normal_vec:
+   5205, Generating acc routine seq
+         Generating NVIDIA GPU code
+solve_2nd_order:
+   5304, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randvec_target_circle:
+   5388, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randvec_target_rect_angular:
+   5454, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randvec_target_rect_real:
+   5531, Generating acc routine seq
+         Generating NVIDIA GPU code
+kiss_srandom:
+   5803, Generating acc routine seq
+         Generating NVIDIA GPU code
+kiss_random:
+   5815, Generating acc routine seq
+         Generating NVIDIA GPU code
+_hash:
+   5847, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randnorm2:
+   5888, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randtriangle:
+   5899, Generating acc routine seq
+         Generating NVIDIA GPU code
+_rand01:
+   5904, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randpm1:
+   5912, Generating acc routine seq
+         Generating NVIDIA GPU code
+_rand0max:
+   5920, Generating acc routine seq
+         Generating NVIDIA GPU code
+_randminmax:
+   5927, Generating acc routine seq
+         Generating NVIDIA GPU code
+mcsetstate:
+   6612, Generating acc routine seq
+         Generating NVIDIA GPU code
+mcgetstate:
+   6652, Generating acc routine seq
+         Generating NVIDIA GPU code
+inside_rectangle:
+   6712, Generating acc routine seq
+         Generating NVIDIA GPU code
+box_intersect:
+   6729, Generating acc routine seq
+         Generating NVIDIA GPU code
+cylinder_intersect:
+   6844, Generating acc routine seq
+         Generating NVIDIA GPU code
+sphere_intersect:
+   6899, Generating acc routine seq
+         Generating NVIDIA GPU code
+SM3_Maxwell:
+   7000, Generating acc routine seq
+         Generating NVIDIA GPU code
+init:
+   8060, Generating update device(_source0_var,_instrument_var,_source_var,_source_arm_var,_PSDbefore_guides_var,_Lmon_before_guides_var,_ZeroD_var)
+class_Source_Maxwell_3_trace:
+   8103, Generating acc routine seq
+         Generating NVIDIA GPU code
+class_Source_simple_trace:
+   8198, Generating acc routine seq
+         Generating NVIDIA GPU code
+class_Monitor_trace:
+   8301, Generating acc routine seq
+         Generating NVIDIA GPU code
+class_L_monitor_trace:
+   8358, Generating acc routine seq
+         Generating NVIDIA GPU code
+class_PSD_monitor_trace:
+   8429, Generating acc routine seq
+         Generating NVIDIA GPU code
+raytrace:
+   8504, Generating acc routine seq
+         Generating NVIDIA GPU code
+raytrace_all:
+   8671, Generating implicit firstprivate(gpu_innerloop)
+         Generating NVIDIA GPU code
+       8685, #pragma acc loop gang(numgangs), vector(vecsize) /* blockIdx.x threadIdx.x */
+   8671, Local memory used for particleN
+   8685, Generating implicit firstprivate(seed,_particle)
+finally:
+   9094, Generating update self(_source0_var,_instrument_var,_source_arm_var,_source_var,_PSDbefore_guides_var,_Lmon_before_guides_var,_ZeroD_var)
+mcenabletrace:
+   6048, Generating update device(mcdotrace)
+DEBUG: CMD: nvc finished
+INFO: ===
+DEBUG: CMD: ./Minimal.out --trace=0 --ncount=1000000 --dir=Minimal_20260409_194441 --format=McCode --bufsiz=10000000 --yes
+Using all default parameter values
+*** TRACE end *** 
+Detector: ZeroD_I=2.54331e+09 ZeroD_ERR=2.54333e+06 ZeroD_N=1e+06 "ZeroD.dat"
+Detector: Lmon_before_guides_I=2.54331e+09 Lmon_before_guides_ERR=2.54333e+06 Lmon_before_guides_N=1e+06 "Lsource.dat"
+Detector: PSDbefore_guides_I=2.54331e+09 PSDbefore_guides_ERR=2.54333e+06 PSDbefore_guides_N=1e+06 "PSDbefore_guides.dat"
+DEBUG: CMD: ./Minimal.out finished
+INFO: Placing instr file copy Minimal.instr in dataset Minimal_20260409_194441
+INFO: Placing generated c-code copy Minimal.c in dataset Minimal_20260409_194441
