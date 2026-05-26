@@ -84,12 +84,12 @@ typedef struct _struct_particle _class_particle;
 _class_particle _particle_global_randnbuse_var;
 _class_particle* _particle = &_particle_global_randnbuse_var;
 
-#pragma acc routine
+
 _class_particle mcgenstate(void);
-#pragma acc routine
+
 _class_particle mcsetstate(double x, double y, double z, double vx, double vy, double vz,
 			   double t, double sx, double sy, double sz, double p, int mcgravitation, void *mcMagnet, int mcallowbackprop);
-#pragma acc routine
+
 _class_particle mcgetstate(_class_particle mcneutron, double *x, double *y, double *z,
                            double *vx, double *vy, double *vz, double *t,
                            double *sx, double *sy, double *sz, double *p);
@@ -103,11 +103,11 @@ _class_particle mcgenstate(void) {
 }
 /*Generated user variable handlers:*/
 
-#pragma acc routine
+
 double particle_getvar(_class_particle *p, char *name, int *suc);
 
 #ifdef OPENACC
-#pragma acc routine
+
 int str_comp(char *str1, char *str2);
 #endif
 
@@ -135,11 +135,11 @@ double particle_getvar(_class_particle *p, char *name, int *suc){
   return rval;
 }
 
-#pragma acc routine
+
 void* particle_getvar_void(_class_particle *p, char *name, int *suc);
 
 #ifdef OPENACC
-#pragma acc routine
+
 int str_comp(char *str1, char *str2);
 #endif
 
@@ -164,7 +164,7 @@ void* particle_getvar_void(_class_particle *p, char *name, int *suc){
   return rval;
 }
 
-#pragma acc routine
+
 int particle_setvar_void(_class_particle *, char *, void*);
 
 int particle_setvar_void(_class_particle *p, char *name, void* value){
@@ -186,7 +186,7 @@ int particle_setvar_void(_class_particle *p, char *name, void* value){
   return rval;
 }
 
-#pragma acc routine
+
 int particle_setvar_void_array(_class_particle *, char *, void*, int);
 
 int particle_setvar_void_array(_class_particle *p, char *name, void* value, int elements){
@@ -197,7 +197,7 @@ int particle_setvar_void_array(_class_particle *p, char *name, void* value, int 
   return rval;
 }
 
-#pragma acc routine
+
 void particle_restore(_class_particle *p, _class_particle *p0);
 
 void particle_restore(_class_particle *p, _class_particle *p0) {
@@ -208,7 +208,7 @@ void particle_restore(_class_particle *p, _class_particle *p0) {
   p->_absorbed=0; p->_restore=0;
 }
 
-#pragma acc routine
+
 double particle_getuservar_byid(_class_particle *p, int id, int *suc){
   int s=1;
   double rval=0;
@@ -218,7 +218,7 @@ double particle_getuservar_byid(_class_particle *p, int id, int *suc){
   return rval;
 }
 
-#pragma acc routine
+
 void particle_uservar_init(_class_particle *p){
 }
 
@@ -285,9 +285,9 @@ void particle_uservar_init(_class_particle *p){
 #else
 #include <math.h>
 #endif
-#pragma acc routine
+
 int noprintf();
-#pragma acc routine
+
 size_t str_len(const char *s);
 #else
 #include <math.h>
@@ -638,7 +638,7 @@ static int mpi_node_count;
 
 
 void   mcset_ncount(unsigned long long count);    /* wrapper to get mcncount */
-#pragma acc routine
+
 unsigned long long int mcget_ncount(void);            /* wrapper to set mcncount */
 unsigned long long mcget_run_num(void);           /* wrapper to get mcrun_num=0:mcncount-1 */
 
@@ -859,7 +859,7 @@ void mcdis_sphere(double x, double y, double z, double r);
 #  define _random() kiss_random(state)
 #endif
 
-#pragma acc routine
+
 double _randnorm2(randstate_t* state);
 
 // Component writer interface
@@ -876,28 +876,28 @@ void mt_srandom (uint32_t x);
 void mt_srandom_empty();
 
 // KISS rng
-#pragma acc routine
+
 uint64_t *kiss_srandom(uint64_t state[7], uint64_t seed);
-#pragma acc routine
+
 uint64_t kiss_random(uint64_t state[7]);
 
 // Scrambler / hash function
-#pragma acc routine seq
+
 randstate_t _hash(randstate_t x);
 
 // internal RNG (transforms) interface
-#pragma acc routine
+
 double _rand01(randstate_t* state);
-#pragma acc routine
+
 double _randpm1(randstate_t* state);
-#pragma acc routine
+
 double _rand0max(double max, randstate_t* state);
-#pragma acc routine
+
 double _randminmax(double min, double max, randstate_t* state);
-#pragma acc routine
+
 double _randtriangle(randstate_t* state);
 // version which pass randstate_t* as opague void*
-#pragma acc routine
+
 double _rand01_opague(void* state);
 
 
@@ -931,19 +931,19 @@ long sort_absorb_last_serial(_class_particle* particles, long len);
 
 #define vec_prod(x, y, z, x1, y1, z1, x2, y2, z2) \
 	vec_prod_func(&x, &y, &z, x1, y1, z1, x2, y2, z2)
-#pragma acc routine seq
+
 mcstatic void vec_prod_func(double *x, double *y, double *z,
 		double x1, double y1, double z1, double x2, double y2, double z2);
 
-#pragma acc routine seq
+
 mcstatic double scalar_prod(
 		double x1, double y1, double z1, double x2, double y2, double z2);
 
-#pragma acc routine seq
+
 mcstatic void norm_func(double *x, double *y, double *z);
 #define NORM(x,y,z)	norm_func(&x, &y, &z)
 
-#pragma acc routine seq
+
 void normal_vec(double *nx, double *ny, double *nz,
     double x, double y, double z);
 
@@ -993,45 +993,45 @@ void normal_vec(double *nx, double *ny, double *nz,
     (z) = rz -2 * mcrt_tmpt*mcrt_rmpz; \
   } while (0)
 
-#pragma acc routine
+
 Coords coords_set(MCNUM x, MCNUM y, MCNUM z);
-#pragma acc routine
+
 Coords coords_get(Coords a, MCNUM *x, MCNUM *y, MCNUM *z);
-#pragma acc routine
+
 Coords coords_add(Coords a, Coords b);
-#pragma acc routine
+
 Coords coords_sub(Coords a, Coords b);
-#pragma acc routine
+
 Coords coords_neg(Coords a);
-#pragma acc routine
+
 Coords coords_scale(Coords b, double scale);
-#pragma acc routine
+
 double coords_sp(Coords a, Coords b);
-#pragma acc routine
+
 Coords coords_xp(Coords b, Coords c);
-#pragma acc routine
+
 double coords_len(Coords a);
-#pragma acc routine seq
+
 void   coords_print(Coords a);
-#pragma acc routine seq
+
 mcstatic void coords_norm(Coords* c);
 
-#pragma acc routine seq
+
 void rot_set_rotation(Rotation t, double phx, double phy, double phz);
-#pragma acc routine seq
+
 int  rot_test_identity(Rotation t);
-#pragma acc routine seq
+
 void rot_mul(Rotation t1, Rotation t2, Rotation t3);
-#pragma acc routine seq
+
 void rot_copy(Rotation dest, Rotation src);
-#pragma acc routine seq
+
 void rot_transpose(Rotation src, Rotation dst);
-#pragma acc routine seq
+
 Coords rot_apply(Rotation t, Coords a);
 
-#pragma acc routine seq
+
 void mccoordschange(Coords a, Rotation t, _class_particle *particle);
-#pragma acc routine seq
+
 void mccoordschange_polarisation(Rotation t, double *sx, double *sy, double *sz);
 
 double mcestimate_error(double N, double p1, double p2);
@@ -1043,19 +1043,19 @@ is no longer equal */
 _class_particle mcgenstate(void);
 
 // trajectory/shape intersection routines
-#pragma acc routine seq
+
 int inside_rectangle(double, double, double, double);
-#pragma acc routine seq
+
 int box_intersect(double *dt_in, double *dt_out, double x, double y, double z,
       double vx, double vy, double vz, double dx, double dy, double dz);
-#pragma acc routine seq
+
 int cylinder_intersect(double *t0, double *t1, double x, double y, double z,
       double vx, double vy, double vz, double r, double h);
-#pragma acc routine seq
+
 int sphere_intersect(double *t0, double *t1, double x, double y, double z,
       double vx, double vy, double vz, double r);
 // second order equation roots
-#pragma acc routine seq
+
 int solve_2nd_order(double *t1, double *t2,
       double A,  double B,  double C);
 
@@ -1072,16 +1072,16 @@ int solve_2nd_order(double *t1, double *t2,
 #define randvec_target_rect(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) \
   randvec_target_rect_real(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,0,0,0,1)
 // headers for randvec
-#pragma acc routine seq
+
 void _randvec_target_circle(double *xo, double *yo, double *zo,
   double *solid_angle, double xi, double yi, double zi, double radius,
   _class_particle* _particle);
-#pragma acc routine seq
+
 void _randvec_target_rect_angular(double *xo, double *yo, double *zo,
   double *solid_angle, double xi, double yi, double zi, double height,
   double width, Rotation A,
   _class_particle* _particle);
-#pragma acc routine seq
+
 void _randvec_target_rect_real(double *xo, double *yo, double *zo, double *solid_angle,
   double xi, double yi, double zi, double height, double width, Rotation A,
   double lx, double ly, double lz, int order,
@@ -6687,7 +6687,7 @@ _class_particle mcgetstate(_class_particle mcneutron, double *x, double *y, doub
 * mcgenstate: set default neutron parameters
 *******************************************************************************/
 // Moved to generated code
-/* #pragma acc routine seq */
+/*  */
 /* _class_particle mcgenstate(void) */
 /* { */
 /*   return(mcsetstate(0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, mcgravitation, mcMagnet, mcallowbackprop)); */
@@ -7022,7 +7022,7 @@ int num_metadata = 0;
 
 /* Shared user declarations for all components types 'Source_Maxwell_3'. */
 /* A normalised Maxwellian distribution : Integral over all l = 1 */
-#pragma acc routine seq
+
 double SM3_Maxwell(double l, double temp)
   {
     double a=949.0/temp;
@@ -7646,7 +7646,7 @@ int init(void) { /* called by mccode_main for PSI_source:INITIALISE */
 #define ABSORBED (_particle->_absorbed)
 #define mcget_run_num() _particle->_uid
 #define ABSORB ABSORB0
-#pragma acc routine
+
 void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
   , _class_particle *_particle) {
   ABSORBED=SCATTERED=RESTORE=0;
@@ -7741,7 +7741,7 @@ void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
   return;
 } /* class_Source_Maxwell_3_trace */
 
-#pragma acc routine
+
 void class_PSD_monitor_trace(_class_PSD_monitor *_comp
   , _class_particle *_particle) {
   ABSORBED=SCATTERED=RESTORE=0;
@@ -7817,7 +7817,7 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
 ***************************************************************************** */
 
 #ifndef FUNNEL
-#pragma acc routine
+
 int raytrace(_class_particle* _particle) { /* single event propagation, called by mccode_main for PSI_source:TRACE */
 
   /* init variables and counters for TRACE */
