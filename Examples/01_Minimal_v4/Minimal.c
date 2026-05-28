@@ -7948,16 +7948,17 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     } /* inner for */
     seed = seed+gpu_innerloop;
   } /* target data map section */
-} /* CPU for */
-  
   double psum,psum1,psum2=0;
   // Check that we populated GPU with data and get back a reasonable sum
-  for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
-    psum+ = weights[pidx];
+  for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
+    psum += weights[pidx];
     psum1+=weights1[pidx];
     psum2+=weights2[pidx];    
   }
-  printf("** Particle creation end weightsums=%g,%g,%g\n",psum,psum1,psum2);
+  printf("** Particle creation end weightsums=%g, %g, %g\n",psum,psum1,psum2);
+} /* CPU for */
+  
+
   MPI_MASTER(
   printf("*** TRACE end *** (%i)\n",_instrument_var._counter);
   );
