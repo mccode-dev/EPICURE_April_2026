@@ -101,8 +101,16 @@ COMPONENT source = Source_Maxwell_3(
         T2=40.68, I2=5.2E11)    
 AT (0,0,0) RELATIVE source_arm  ROTATED (0,0,0) RELATIVE source_arm
 
-COMPONENT mon = L_monitor(Lmin=lambda-ldiff/2,Lmax=lambda+ldiff/2,nL=128)
+COMPONENT mon = Monitor_4PI()
 AT (0, 0, 1.5) RELATIVE source_arm
+
+COMPONENT Lmon = L_monitor(Lmin=lambda-ldiff/2,Lmax=lambda+ldiff/2,nL=128)
+AT (0, 0, 1.51) RELATIVE source_arm
+
+COMPONENT PSDmon = PSD_monitor(
+    nx = 128, ny = 128, filename = "PSDbefore_guides",
+    xwidth = 0.025, yheight = 0.125)
+AT (0, 0, 1.52) RELATIVE source_arm
 
 END  
 
