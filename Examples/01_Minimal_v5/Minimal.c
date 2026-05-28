@@ -7992,11 +7992,11 @@ void class_Monitor_4PI_trace(_class_Monitor_4PI *_comp
   SIG_MESSAGE("[_mon_trace] component mon=Monitor_4PI() TRACE [Monitor_4PI:0]");
 
   double p2 = p * p;
-  #pragma acc atomic
+  #pragma omp atomic update
   Nsum = Nsum + 1;
-  #pragma acc atomic
+  #pragma omp atomic update
   psum = psum + p;
-  #pragma acc atomic
+  #pragma omp atomic update
   p2sum = p2sum + p2;
   SCATTER;
 #ifndef NOABSORB_INF_NAN
