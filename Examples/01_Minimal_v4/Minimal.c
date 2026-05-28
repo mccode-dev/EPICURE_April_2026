@@ -7664,9 +7664,9 @@ void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
 /*  printf("pos0 (%g %g %g), pos1 (%g %g %g), r: %g, v (%g %g %g), v %g\n",
   x,y,z,xf,yf,dist,r,vx,vy,vz, v);
   printf("l %g, w_focus %g \n", lambda, w_focus);  */
-
-  p *= w_mult*w_focus;                /* Correct for target focusing etc */
-  p *= I1*SM3_Maxwell(lambda,T1)+I2*SM3_Maxwell(lambda,T2)+I3*SM3_Maxwell(lambda,T3);
+  p=1/2;
+  //p *= w_mult*w_focus;                /* Correct for target focusing etc */
+  //p *= I1*SM3_Maxwell(lambda,T1)+I2*SM3_Maxwell(lambda,T2)+I3*SM3_Maxwell(lambda,T3);
                                         /* Calculate true intensity */
 //#ifndef NOABSORB_INF_NAN
   /* Check for nan or inf particle parms */ 
@@ -8021,7 +8021,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
       _particle->_uid += mpi_node_rank * ncount; 
       #endif
       srandom(_hash((pidx+1)*(seed+1))); // _particle->state usage built into srandom macro
-      weights[idx] = p;
+      weights[pidx] = p;
     }
       #pragma omp barrier
 
