@@ -7857,12 +7857,10 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-#pragma omp target data map(tofrom: _source_arm_var)
-#pragma omp target data map(tofrom: _source_var)
-#pragma omp target data map(tofrom: _mon_var)
-#pragma omp target data map(to:_instrument_var)
+    double* weights = malloc(gpu_innerloop*sizeof(double));
+
   {
-    #pragma omp target teams loop
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -7873,7 +7871,74 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 
       srandom(_hash((pidx+1)*(seed+1)));
 
-      raytrace(_particle);
+      //raytrace(_particle);
+  /* init variables and counters for TRACE */
+  #undef ABSORB0
+  #undef ABSORB
+  #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++;} while(0)
+  #define ABSORB ABSORB0
+  DEBUG_ENTER();
+  DEBUG_STATE();
+  _particle->flag_nocoordschange=0; /* Init */
+  _class_particle _particle_save=*_particle;
+  /* the main iteration loop for one incoming event */
+  while (!ABSORBED) { /* iterate event until absorbed */
+    /* send particle event to component instance, one after the other */
+    /* begin component source_arm=Arm() [1] */
+    if (!ABSORBED && _particle->_index == 1) {
+      _particle->flag_nocoordschange=0; /* Reset if we came here from a JUMP */
+      _particle->_index++;
+    } /* end component source_arm [1] */
+    /* begin component source=Source_Maxwell_3() [2] */
+    if (!_particle->flag_nocoordschange) { // flag activated by JUMP to pass coords change
+      if (_source_var._rotation_is_identity) {
+        if(!_source_var._position_relative_is_zero) {
+          coords_get(coords_add(coords_set(x,y,z), _source_var._position_relative),&x, &y, &z);
+        }
+      } else {
+          mccoordschange(_source_var._position_relative, _source_var._rotation_relative, _particle);
+      }
+    }
+    if (!ABSORBED && _particle->_index == 2) {
+      _particle->flag_nocoordschange=0; /* Reset if we came here from a JUMP */
+      _particle_save = *_particle;
+      DEBUG_COMP(_source_var._name);
+      DEBUG_STATE();
+      class_Source_Maxwell_3_trace(&_source_var, _particle);
+      if (_particle->_restore)
+        particle_restore(_particle, &_particle_save);
+      _particle->_index++;
+      if (!ABSORBED) { DEBUG_STATE(); }
+    } /* end component source [2] */
+    /* begin component mon=Monitor_4PI() [3] */
+    if (!_particle->flag_nocoordschange) { // flag activated by JUMP to pass coords change
+      if (_mon_var._rotation_is_identity) {
+        if(!_mon_var._position_relative_is_zero) {
+          coords_get(coords_add(coords_set(x,y,z), _mon_var._position_relative),&x, &y, &z);
+        }
+      } else {
+          mccoordschange(_mon_var._position_relative, _mon_var._rotation_relative, _particle);
+      }
+    }
+    if (!ABSORBED && _particle->_index == 3) {
+      _particle->flag_nocoordschange=0; /* Reset if we came here from a JUMP */
+      _particle_save = *_particle;
+      DEBUG_COMP(_mon_var._name);
+      DEBUG_STATE();
+      class_Monitor_4PI_trace(&_mon_var, _particle);
+      if (_particle->_restore)
+        particle_restore(_particle, &_particle_save);
+      _particle->_index++;
+      if (!ABSORBED) { DEBUG_STATE(); }
+    } /* end component mon [3] */
+    if (_particle->_index > 3)
+      ABSORBED++; /* absorbed when passed all components */
+  } /* while !ABSORBED */
+
+  DEBUG_LEAVE()
+  particle_restore(_particle, &_particle_save);
+  DEBUG_STATE()
+      
     } /* inner for */
     seed = seed+gpu_innerloop;
   } /* target data map section */
@@ -7972,7 +8037,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
       int absorb_counter = 0;
     // iterate components
 
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
