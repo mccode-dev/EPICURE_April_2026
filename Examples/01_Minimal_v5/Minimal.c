@@ -7999,7 +7999,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
     // init particles
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var, jj)
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
