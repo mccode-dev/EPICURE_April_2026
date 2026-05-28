@@ -7116,6 +7116,27 @@ typedef struct _struct_Monitor_4PI _class_Monitor_4PI;
 _class_Monitor_4PI _mon_var;
 #pragma omp end declare target
 
+#pragma omp declare mapper(struct _struct_Monitor_4PI v)  \
+  map(v._name[0:256])                                     \
+  map(v._type[0:256])                                     \
+  map(v._index)                                           \
+  map(v._position_absolute.x)                             \
+  map(v._position_absolute.y)                             \
+  map(v._position_absolute.z)                             \
+  map(v._position_relative.x)                             \
+  map(v._position_relative.y)                             \
+  map(v._position_relative.z)                             \
+  map(v._rotation_absolute[0:3][0:3])                     \
+  map(v._rotation_relative[0:3][0:3])                     \
+  map(v._rotation_is_identity)                            \
+  map(v._position_relative_is_zero)                       \
+  map(v.Nsum)                       \
+  map(v.psum)                       \
+  map(v.p2sum)
+
+
+
+
 int mcNUMCOMP = 3;
 
 /* User declarations from instrument definition. Can define functions. */
@@ -7613,20 +7634,20 @@ void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
   p *= w_mult*w_focus;                /* Correct for target focusing etc */
   p *= I1*SM3_Maxwell(lambda,T1)+I2*SM3_Maxwell(lambda,T2)+I3*SM3_Maxwell(lambda,T3);
                                         /* Calculate true intensity */
-#ifndef NOABSORB_INF_NAN
+//#ifndef NOABSORB_INF_NAN
   /* Check for nan or inf particle parms */ 
-  if(isnan(p + t + vx + vy + vz + x + y + z)) ABSORB;
-  if(isinf(fabs(p) + fabs(t) + fabs(vx) + fabs(vy) + fabs(vz) + fabs(x) + fabs(y) + fabs(z))) ABSORB;
-#else
-  if(isnan(p)  ||  isinf(p)) printf("NAN or INF found in p,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(t)  ||  isinf(t)) printf("NAN or INF found in t,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vx) || isinf(vx)) printf("NAN or INF found in vx, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vy) || isinf(vy)) printf("NAN or INF found in vy, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vz) || isinf(vz)) printf("NAN or INF found in vz, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(x)  ||  isinf(x)) printf("NAN or INF found in x,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(y)  ||  isinf(y)) printf("NAN or INF found in y,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(z)  ||  isinf(z)) printf("NAN or INF found in z,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-#endif
+//  if(isnan(p + t + vx + vy + vz + x + y + z)) ABSORB;
+//  if(isinf(fabs(p) + fabs(t) + fabs(vx) + fabs(vy) + fabs(vz) + fabs(x) + fabs(y) + fabs(z))) ABSORB;
+//#else
+//  if(isnan(p)  ||  isinf(p)) printf("NAN or INF found in p,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(t)  ||  isinf(t)) printf("NAN or INF found in t,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(vx) || isinf(vx)) printf("NAN or INF found in vx, %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(vy) || isinf(vy)) printf("NAN or INF found in vy, %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(vz) || isinf(vz)) printf("NAN or INF found in vz, %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(x)  ||  isinf(x)) printf("NAN or INF found in x,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(y)  ||  isinf(y)) printf("NAN or INF found in y,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(z)  ||  isinf(z)) printf("NAN or INF found in z,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//#endif
   #undef size
   #undef yheight
   #undef xwidth
@@ -7660,27 +7681,27 @@ void class_Monitor_4PI_trace(_class_Monitor_4PI *_comp
   SIG_MESSAGE("[_mon_trace] component mon=Monitor_4PI() TRACE [Monitor_4PI:0]");
 
   double p2 = p * p;
-  #pragma acc atomic
+  #pragma omp atomic update
   Nsum = Nsum + 1;
-  #pragma acc atomic
+  #pragma omp atomic update
   psum = psum + p;
-  #pragma acc atomic
+  #pragma omp atomic update
   p2sum = p2sum + p2;
   SCATTER;
-#ifndef NOABSORB_INF_NAN
+//#ifndef NOABSORB_INF_NAN
   /* Check for nan or inf particle parms */ 
-  if(isnan(p + t + vx + vy + vz + x + y + z)) ABSORB;
-  if(isinf(fabs(p) + fabs(t) + fabs(vx) + fabs(vy) + fabs(vz) + fabs(x) + fabs(y) + fabs(z))) ABSORB;
-#else
-  if(isnan(p)  ||  isinf(p)) printf("NAN or INF found in p,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(t)  ||  isinf(t)) printf("NAN or INF found in t,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vx) || isinf(vx)) printf("NAN or INF found in vx, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vy) || isinf(vy)) printf("NAN or INF found in vy, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vz) || isinf(vz)) printf("NAN or INF found in vz, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(x)  ||  isinf(x)) printf("NAN or INF found in x,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(y)  ||  isinf(y)) printf("NAN or INF found in y,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(z)  ||  isinf(z)) printf("NAN or INF found in z,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-#endif
+//  if(isnan(p + t + vx + vy + vz + x + y + z)) ABSORB;
+//  if(isinf(fabs(p) + fabs(t) + fabs(vx) + fabs(vy) + fabs(vz) + fabs(x) + fabs(y) + fabs(z))) ABSORB;
+//#else
+//  if(isnan(p)  ||  isinf(p)) printf("NAN or INF found in p,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(t)  ||  isinf(t)) printf("NAN or INF found in t,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(vx) || isinf(vx)) printf("NAN or INF found in vx, %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(vy) || isinf(vy)) printf("NAN or INF found in vy, %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(vz) || isinf(vz)) printf("NAN or INF found in vz, %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(x)  ||  isinf(x)) printf("NAN or INF found in x,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(y)  ||  isinf(y)) printf("NAN or INF found in y,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//  if(isnan(z)  ||  isinf(z)) printf("NAN or INF found in z,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
+//#endif
   #undef Nsum
   #undef psum
   #undef p2sum
@@ -7858,10 +7879,10 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    #undef sprintf
    #undef fprintf
    #endif
-   #pragma omp target data map(tofrom: _source_arm_var)
-   #pragma omp target data map(tofrom: _source_var)
-   #pragma omp target data map(tofrom: _mon_var)
-   #pragma omp target data map(tofrom:_instrument_var)
+//   #pragma omp target data map(tofrom: _source_arm_var)
+//   #pragma omp target data map(tofrom: _source_var)
+//   #pragma omp target data map(tofrom: _mon_var)
+//   #pragma omp target data map(tofrom:_instrument_var)
  { 
   #ifdef OPENACC
   loops = ceil((double)ncount/gpu_innerloop);
@@ -7891,7 +7912,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
     // init particles
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
@@ -7900,14 +7921,9 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
       #ifdef USE_MPI
       _particle->_uid += mpi_node_rank * ncount; 
       #endif
-      int old;
-      #pragma omp atomic capture
-      {
-        old=_instrument_var._counter+1; _instrument_var._counter=old;
-      }
-      weights[pidx]=p;
       srandom(_hash((pidx+1)*(seed+1))); // _particle->state usage built into srandom macro
     }
+      #pragma omp barrier
 
     double psum=0;
     // Check that we populated GPU with data and get back a reasonable sum
@@ -7916,9 +7932,12 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     }
    printf("** Particle creation end weightsum=%g\n",psum);
 
+      int source_counter = 0;
+      int monitor_counter = 0;
+      int absorb_counter = 0;
     // iterate components
 
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize])
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
@@ -7930,28 +7949,37 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
       // source
     if (!ABSORBED && _particle->_index == 2) {
-#ifndef MULTICORE
+    	#pragma omp atomic update
+	source_counter++;
+/*#ifndef MULTICORE
         if (_source_var._rotation_is_identity)
           coords_get(coords_add(coords_set(x,y,z), _source_var._position_relative),&x, &y, &z);
         else
 #endif
           mccoordschange(_source_var._position_relative, _source_var._rotation_relative, _particle);
-        _particle_save = *_particle;
+        _particle_save = *_particle;*/
         class_Source_Maxwell_3_trace(&_source_var, _particle);
-        if (_particle->_restore)
-        particle_restore(_particle, &_particle_save);
+        /*if (_particle->_restore)
+        particle_restore(_particle, &_particle_save);*/
+        
+        #pragma omp atomic update
+	absorb_counter += ABSORBED;
+	  
+	  #pragma omp atomic update
         _particle->_index++;
       }
 
       // mon
     if (!ABSORBED && _particle->_index == 3) {
-#ifndef MULTICORE
+    	#pragma omp atomic update
+	monitor_counter += 1;
+/*#ifndef MULTICORE
         if (_mon_var._rotation_is_identity)
           coords_get(coords_add(coords_set(x,y,z), _mon_var._position_relative),&x, &y, &z);
         else
 #endif
           mccoordschange(_mon_var._position_relative, _mon_var._rotation_relative, _particle);
-        _particle_save = *_particle;
+        _particle_save = *_particle;*/
         class_Monitor_4PI_trace(&_mon_var, _particle);
         if (_particle->_restore)
         particle_restore(_particle, &_particle_save);
@@ -7965,6 +7993,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       psum+=weights[pidx];
     }
+   printf("Source counter: %d, monitor counter: %d, absorbed: %d", source_counter, monitor_counter, absorb_counter);
    printf("** Particle TRACE end weightsum=%g\n",psum);
 
     // jump to next viable seed
