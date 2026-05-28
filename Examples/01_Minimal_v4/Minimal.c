@@ -7664,7 +7664,7 @@ void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
 /*  printf("pos0 (%g %g %g), pos1 (%g %g %g), r: %g, v (%g %g %g), v %g\n",
   x,y,z,xf,yf,dist,r,vx,vy,vz, v);
   printf("l %g, w_focus %g \n", lambda, w_focus);  */
-  p=1/2;
+  p=1.0/2.0;
   //p *= w_mult*w_focus;                /* Correct for target focusing etc */
   //p *= I1*SM3_Maxwell(lambda,T1)+I2*SM3_Maxwell(lambda,T2)+I3*SM3_Maxwell(lambda,T3);
                                         /* Calculate true intensity */
@@ -7906,7 +7906,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
       _particle_save = *_particle;
       DEBUG_COMP(_source_var._name);
       DEBUG_STATE();
-      class_Source_Maxwell_3_trace(&_source_var, _particle);
+      (&_source_var, _particle);
       if (_particle->_restore)
         particle_restore(_particle, &_particle_save);
       _particle->_index++;
