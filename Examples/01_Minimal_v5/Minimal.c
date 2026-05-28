@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: Minimal.instr (PSI_source)
- * Date:       Thu May 28 17:08:47 2026
+ * Date:       Thu May 28 17:32:25 2026
  * File:       Minimal.c
  * CFLAGS=
  */
@@ -8316,12 +8316,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-#pragma omp target data map(tofrom: _source_arm_var)
-#pragma omp target data map(tofrom: _source_var)
-#pragma omp target data map(tofrom: _mon_var)
-#pragma omp target data map(tofrom: _Lmon_var)
-#pragma omp target data map(tofrom: _PSDmon_var)
-#pragma omp target data map(to:_instrument_var)
+  #pragma omp target data map(to:_instrument_var) map(tofrom:  _source_arm_var, _source_var, _mon_var, _Lmon_var, _PSDmon_var)
   {
     #pragma omp target teams loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
@@ -8374,6 +8369,12 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    #undef sprintf
    #undef fprintf
    #endif
+   #pragma omp target data map(tofrom: _source_arm_var)
+   #pragma omp target data map(tofrom: _source_var)
+   #pragma omp target data map(tofrom: _mon_var)
+   #pragma omp target data map(tofrom: _Lmon_var)
+   #pragma omp target data map(tofrom: _PSDmon_var)
+   #pragma omp target data map(tofrom:_instrument_var)
  { 
   #ifdef OPENACC
   loops = ceil((double)ncount/gpu_innerloop);
@@ -8403,7 +8404,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
     // init particles
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _L_mon_var, _PSD_mon_var, _source_var, _source_arm_var)
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
@@ -8430,7 +8431,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
     // iterate components
 
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _L_mon_var, _PSD_mon_var, _source_var, _source_arm_var)
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize])
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
