@@ -1,0 +1,137 @@
+/*******************************************************************************
+*
+* McStas, neutron ray-tracing package
+*         Copyright 1997-2002, All rights reserved
+*         Risoe National Laboratory, Roskilde, Denmark
+*         Institut Laue Langevin, Grenoble, France
+*
+* Component: L_monitor
+*
+* %I
+* Written by: Kristian Nielsen and Kim Lefmann
+* Date: April 20, 1998
+* Origin: Risoe
+*
+* Wavelength-sensitive monitor.
+*
+* %D
+* A square single monitor that measures the wavelength of the incoming
+* neutrons.
+*
+* Example: L_monitor(xmin=-0.1, xmax=0.1, ymin=-0.1, ymax=0.1, nL=20, filename="Output.L", Lmin=2, Lmax=10)
+*
+* %P
+* INPUT PARAMETERS:
+*
+* xmin: [m]             Lower x bound of detector opening
+* xmax: [m]             Upper x bound of detector opening
+* ymin: [m]             Lower y bound of detector opening
+* ymax: [m]             Upper y bound of detector opening
+* xwidth: [m]           Width of detector. Overrides xmin, xmax.
+* yheight: [m]          Height of detector. Overrides ymin, ymax.
+* Lmin: [AA]            Minimum wavelength to detect
+* Lmax: [AA]            Maximum wavelength to detect
+* nL: [1]               Number of wavelength channels
+* filename: [string]    Name of file in which to store the detector image
+* restore_neutron: [1]  If set, the monitor does not influence the neutron state
+* nowritefile: [1]      If set, monitor will skip writing to disk
+*
+* CALCULATED PARAMETERS:
+*
+* L_N: []               Array of neutron counts
+* L_p: []               Array of neutron weight counts
+* L_p2: []              Array of second moments
+*
+* %E
+*******************************************************************************/
+DEFINE COMPONENT L_monitor
+
+
+
+SETTING PARAMETERS (int nL=20, string filename=0, int nowritefile=0,
+  xmin=-0.05, xmax=0.05, ymin=-0.05, ymax=0.05, xwidth=0, yheight=0,
+  Lmin, Lmax, int restore_neutron=0)
+
+
+/* Neutron parameters: (x,y,z,vx,vy,vz,t,sx,sy,sz,p) */
+
+SHARE
+%{
+  #pragma omp declare target
+  double L_N[128];
+  double L_p[128];
+  double L_p2[128];
+  #pragma omp end declare target
+%}
+
+INITIALIZE
+%{
+  if (xwidth > 0) {
+    xmax = xwidth / 2;
+    xmin = -xmax;
+  }
+  if (yheight > 0) {
+    ymax = yheight / 2;
+    ymin = -ymax;
+  }
+
+  if ((xmin >= xmax) || (ymin >= ymax)) {
+    printf ("L_monitor: %s: Null detection area !\n"
+            "ERROR      (xwidth,yheight,xmin,xmax,ymin,ymax). Exiting",
+            NAME_CURRENT_COMP);
+    exit (0);
+  }
+
+  //  L_N = create_darr1d (nL);
+  //  L_p = create_darr1d (nL);
+  //  L_p2 = create_darr1d (nL);
+
+  // Use instance name for monitor output if no input was given
+  if (!strcmp (filename, "\0"))
+    sprintf (filename, "%s", NAME_CURRENT_COMP);
+%}
+
+TRACE
+%{
+  PROP_Z0;
+  if (x > xmin && x < xmax && y > ymin && y < ymax) {
+    double L = (2 * PI / V2K) / sqrt (vx * vx + vy * vy + vz * vz);
+    int i = floor ((L - Lmin) * nL / (Lmax - Lmin));
+    if (i >= 0 && i < nL) {
+      double p2 = p * p;
+
+      #pragma omp atomic update
+      L_N[i] = L_N[i] + 1;
+       #pragma omp atomic update
+      L_p[i] = L_p[i] + p;
+      #pragma omp atomic update
+      L_p2[i] = L_p2[i] + p2;
+      SCATTER;
+    }
+  }
+  if (restore_neutron) {
+    RESTORE_NEUTRON (INDEX_CURRENT_COMP, x, y, z, vx, vy, vz, t, sx, sy, sz, p);
+  }
+%}
+
+SAVE
+%{
+  if (!nowritefile) {
+    DETECTOR_OUT_1D ("Wavelength monitor", "Wavelength [AA]", "Intensity", "L", Lmin, Lmax, nL, &L_N[0], &L_p[0], &L_p2[0], filename);
+  }
+%}
+
+FINALLY
+%{
+/*  destroy_darr1d (L_N);
+  destroy_darr1d (L_p);
+  destroy_darr1d (L_p2);*/
+%}
+
+MCDISPLAY
+%{
+  multiline (5, (double)xmin, (double)ymin, 0.0, (double)xmax, (double)ymin, 0.0, (double)xmax, (double)ymax, 0.0, (double)xmin, (double)ymax, 0.0, (double)xmin,
+             (double)ymin, 0.0);
+%}
+
+END
