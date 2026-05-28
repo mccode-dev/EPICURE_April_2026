@@ -7858,9 +7858,10 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     #endif
 
     double* weights = malloc(gpu_innerloop*sizeof(double));
-
+    double* weights1 = malloc(gpu_innerloop*sizeof(double));
+    double* weights2 = malloc(gpu_innerloop*sizeof(double));
   {
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
+#pragma omp target teams loop map(tofrom: weights[0:gpu_innerloop], weights1[0:gpu_innerloop], weights2[0:gpu_innerloop]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -7890,15 +7891,16 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
       _particle->_index++;
     } /* end component source_arm [1] */
     /* begin component source=Source_Maxwell_3() [2] */
-    if (!_particle->flag_nocoordschange) { // flag activated by JUMP to pass coords change
-      if (_source_var._rotation_is_identity) {
-        if(!_source_var._position_relative_is_zero) {
-          coords_get(coords_add(coords_set(x,y,z), _source_var._position_relative),&x, &y, &z);
-        }
-      } else {
-          mccoordschange(_source_var._position_relative, _source_var._rotation_relative, _particle);
-      }
-    }
+    /* if (!_particle->flag_nocoordschange) { // flag activated by JUMP to pass coords change */
+    /*   if (_source_var._rotation_is_identity) { */
+    /*     if(!_source_var._position_relative_is_zero) { */
+    /*       coords_get(coords_add(coords_set(x,y,z), _source_var._position_relative),&x, &y, &z); */
+    /*     } */
+    /*   } else { */
+    /*       mccoordschange(_source_var._position_relative, _source_var._rotation_relative, _particle); */
+    /*   } */
+    /* } */
+    weights[pidx]=p;
     if (!ABSORBED && _particle->_index == 2) {
       _particle->flag_nocoordschange=0; /* Reset if we came here from a JUMP */
       _particle_save = *_particle;
@@ -7911,15 +7913,16 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
       if (!ABSORBED) { DEBUG_STATE(); }
     } /* end component source [2] */
     /* begin component mon=Monitor_4PI() [3] */
-    if (!_particle->flag_nocoordschange) { // flag activated by JUMP to pass coords change
-      if (_mon_var._rotation_is_identity) {
-        if(!_mon_var._position_relative_is_zero) {
-          coords_get(coords_add(coords_set(x,y,z), _mon_var._position_relative),&x, &y, &z);
-        }
-      } else {
-          mccoordschange(_mon_var._position_relative, _mon_var._rotation_relative, _particle);
-      }
-    }
+    /* if (!_particle->flag_nocoordschange) { // flag activated by JUMP to pass coords change */
+    /*   if (_mon_var._rotation_is_identity) { */
+    /*     if(!_mon_var._position_relative_is_zero) { */
+    /*       coords_get(coords_add(coords_set(x,y,z), _mon_var._position_relative),&x, &y, &z); */
+    /*     } */
+    /*   } else { */
+    /*       mccoordschange(_mon_var._position_relative, _mon_var._rotation_relative, _particle); */
+    /*   } */
+    /* } */
+    weights1[pidx]=p;
     if (!ABSORBED && _particle->_index == 3) {
       _particle->flag_nocoordschange=0; /* Reset if we came here from a JUMP */
       _particle_save = *_particle;
@@ -7931,10 +7934,13 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
       _particle->_index++;
       if (!ABSORBED) { DEBUG_STATE(); }
     } /* end component mon [3] */
+    weights2[pidx]=p;
     if (_particle->_index > 3)
       ABSORBED++; /* absorbed when passed all components */
   } /* while !ABSORBED */
 
+
+  
   DEBUG_LEAVE()
   particle_restore(_particle, &_particle_save);
   DEBUG_STATE()
@@ -7943,6 +7949,15 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     seed = seed+gpu_innerloop;
   } /* target data map section */
 } /* CPU for */
+  
+  double psum,psum1,psum2=0;
+  // Check that we populated GPU with data and get back a reasonable sum
+  for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
+    psum+ = weights[pidx];
+    psum1+=weights1[pidx];
+    psum2+=weights2[pidx];    
+  }
+  printf("** Particle creation end weightsums=%g,%g,%g\n",psum,psum1,psum2);
   MPI_MASTER(
   printf("*** TRACE end *** (%i)\n",_instrument_var._counter);
   );
