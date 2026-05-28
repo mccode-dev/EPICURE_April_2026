@@ -8316,7 +8316,12 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-  #pragma omp target data map(to:_instrument_var) map(tofrom:  _source_arm_var, _source_var, _mon_var, _Lmon_var, _PSDmon_var)
+  #pragma omp target data map(tofrom: _source_arm_var)
+  #pragma omp target data map(tofrom: _source_var)
+  #pragma omp target data map(tofrom: _mon_var)
+  #pragma omp target data map(tofrom: _Lmon_var, _Lmon_var.L_N[0:128], _Lmon_var.L_p[0:128], _Lmon_var.L_p2[0:128])
+  #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:128][0:128], _PSDmon_var.PSD_p[0:128][0:128], _PSDmon_var.PSD_p2[0:128][0:128])
+  #pragma omp target data map(tofrom:_instrument_var)
   {
     #pragma omp target teams loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
