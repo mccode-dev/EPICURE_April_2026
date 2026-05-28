@@ -1,0 +1,32 @@
+# Format: McCode with text headers
+# URL: http://www.mccode.org
+# Creator:  3.99.99, git
+# Instrument: Minimal.instr
+# Ncount: 1000000
+# Trace: no
+# Gravitation: no
+# Seed: 1779983650797574
+# Directory: example_dataset
+# Param: lambda=2.5666
+# Param: R=0.87
+# Param: R_curve=0.87
+# Param: filename=Na2Ca3Al2F14.laz
+# Param: D_PHI=6
+# Param: SHIFT=0
+# Param: PACK=0.7
+# Param: Dw=0.8
+# Param: BARNS=1
+# Date: Thu May 28 17:54:12 2026 (1779983652)
+# type: array_0d
+# Source: PSI_source (Minimal.instr)
+# component: mon
+# position: 0 0 1.5
+# title: 4PI monitor mon
+# Ncount: 1000000
+# filename: mon.dat
+# statistics: None
+# signal: None
+# values: 2.466e+08 768521 97679
+# xylimits: 0 0 0 0 0 0
+# variables: I I_err N
+2.466e+08 768521 97679

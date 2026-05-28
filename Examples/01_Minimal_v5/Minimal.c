@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: Minimal.instr (PSI_source)
- * Date:       Thu May 28 17:32:25 2026
+ * Date:       Thu May 28 17:52:29 2026
  * File:       Minimal.c
  * CFLAGS=
  */
@@ -8045,11 +8045,11 @@ void class_L_monitor_trace(_class_L_monitor *_comp
     int i = floor ((L - Lmin) * nL / (Lmax - Lmin));
     if (i >= 0 && i < nL) {
       double p2 = p * p;
-      #pragma acc atomic
+      #pragma omp atomic update
       L_N[i] = L_N[i] + 1;
-      #pragma acc atomic
+      #pragma omp atomic update
       L_p[i] = L_p[i] + p;
-      #pragma acc atomic
+      #pragma omp atomic update
       L_p2[i] = L_p2[i] + p2;
       SCATTER;
     }
@@ -8114,13 +8114,13 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
     int j = floor ((y - ymin) * ny / (ymax - ymin));
 
     double p2 = p * p;
-    #pragma acc atomic
+    #pragma omp atomic update
     PSD_N[i][j] = PSD_N[i][j] + 1;
 
-    #pragma acc atomic
+    #pragma omp atomic update
     PSD_p[i][j] = PSD_p[i][j] + p;
 
-    #pragma acc atomic
+    #pragma omp atomic update
     PSD_p2[i][j] = PSD_p2[i][j] + p2;
 
     SCATTER;

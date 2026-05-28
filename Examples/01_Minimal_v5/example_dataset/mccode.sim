@@ -1,0 +1,91 @@
+mcstas simulation description file for PSI_source.
+Date:    Thu May 28 17:54:10 2026
+Program:  3.99.99, git
+
+begin instrument: PSI_source
+  File: example_dataset/mccode
+  Source: Minimal.instr
+  Parameters:  lambda(double) R(double) R_curve(double) filename(string) D_PHI(double) SHIFT(double) PACK(double) Dw(double) BARNS(double)
+  Trace_enabled: yes
+  Default_main: yes
+  Embedded_runtime: yes
+end instrument
+
+begin simulation: example_dataset
+  Format: McCode with text headers
+  URL: http://www.mccode.org
+  Creator:  3.99.99, git
+  Instrument: Minimal.instr
+  Ncount: 1000000
+  Trace: no
+  Gravitation: no
+  Seed: 1779983650797574
+  Directory: example_dataset
+  Param: lambda=2.5666
+  Param: R=0.87
+  Param: R_curve=0.87
+  Param: filename=Na2Ca3Al2F14.laz
+  Param: D_PHI=6
+  Param: SHIFT=0
+  Param: PACK=0.7
+  Param: Dw=0.8
+  Param: BARNS=1
+end simulation
+
+begin data
+  Date: Thu May 28 17:54:12 2026 (1779983652)
+  type: array_0d
+  Source: PSI_source (Minimal.instr)
+  component: mon
+  position: 0 0 1.5
+  title: 4PI monitor mon
+  Ncount: 1000000
+  filename: mon.dat
+  statistics: None
+  signal: None
+  values: 2.466e+08 768521 97679
+  xylimits: 0 0 0 0 0 0
+  variables: I I_err N
+end data
+
+begin data
+  Date: Thu May 28 17:54:12 2026 (1779983652)
+  type: array_1d(128)
+  Source: PSI_source (Minimal.instr)
+  component: Lmon
+  position: 0 0 1.51
+  title: Wavelength monitor
+  Ncount: 1000000
+  filename: Lmon.dat
+  statistics: X0=2.56656; dX=0.0144273;
+  signal: Min=1.59295e+07; Max=1.71687e+07; Mean=1.64546e+07;
+  values: 2.10619e+09 2.31489e+06 827829
+  xvar: L
+  yvar: (I,I_err)
+  xlabel: Wavelength [AA]
+  ylabel: Intensity
+  xlimits: 2.5416 2.5916
+  variables: L I I_err N
+end data
+
+begin data
+  Date: Thu May 28 17:54:12 2026 (1779983652)
+  type: array_2d(128, 128)
+  Source: PSI_source (Minimal.instr)
+  component: PSDmon
+  position: 0 0 1.52
+  title: PSD monitor
+  Ncount: 1000000
+  filename: PSDbefore_guides.dat
+  statistics: X0=-0.000156991; dX=0.587296; Y0=-0.0040872; dY=3.50886;
+  signal: Min=0; Max=289958; Mean=155232;
+  values: 2.54332e+09 2.54334e+06 1e+06
+  xvar: X 
+  yvar: Y 
+  xlabel: X position [cm]
+  ylabel: Y position [cm]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -1.25 1.25 -6.25 6.25
+  variables: I I_err N
+end data
