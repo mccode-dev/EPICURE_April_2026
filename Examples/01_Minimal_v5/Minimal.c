@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: Minimal.instr (PSI_source)
- * Date:       Thu May 28 17:52:29 2026
+ * Date:       Thu Jun  4 15:32:54 2026
  * File:       Minimal.c
  * CFLAGS=
  */
@@ -103,12 +103,12 @@ _class_particle mcgenstate(void) {
 
 double particle_getvar(_class_particle *p, char *name, int *suc);
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int str_comp(char *str1, char *str2);
 #endif
 
 double particle_getvar(_class_particle *p, char *name, int *suc){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int s=1;
@@ -133,12 +133,12 @@ double particle_getvar(_class_particle *p, char *name, int *suc){
 
 void* particle_getvar_void(_class_particle *p, char *name, int *suc);
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int str_comp(char *str1, char *str2);
 #endif
 
 void* particle_getvar_void(_class_particle *p, char *name, int *suc){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int s=1;
@@ -161,7 +161,7 @@ void* particle_getvar_void(_class_particle *p, char *name, int *suc){
 int particle_setvar_void(_class_particle *, char *, void*);
 
 int particle_setvar_void(_class_particle *p, char *name, void* value){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int rval=1;
@@ -182,7 +182,7 @@ int particle_setvar_void(_class_particle *p, char *name, void* value){
 int particle_setvar_void_array(_class_particle *, char *, void*, int);
 
 int particle_setvar_void_array(_class_particle *p, char *name, void* value, int elements){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int rval=1;
@@ -1548,7 +1548,7 @@ mcstatic unsigned long long int mcrun_num            = 0;
 #endif
 
 /* String nullification on GPU and other replacements */
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int noprintf() {
   return 0;
 }
@@ -4794,7 +4794,7 @@ Coords coords_mirror(Coords a, Coords n) {
 
 /* coords_print: Print out vector values. */
 void coords_print(Coords a) {
-  #ifndef OPENACC
+  #if !defined(OPENACC) && !defined(_OPENMP)
   fprintf(stdout, "(%f, %f, %f)\n", a.x, a.y, a.z);
   #endif
   return;
@@ -5973,7 +5973,7 @@ mchelp(char *pgmname)
 "  --meta-type COMP:NAME      Print metadata format type specified in definition\n"
 "  --meta-data COMP:NAME      Print the metadata text\n"
 "  --source                   Show the instrument code which was compiled.\n"
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 "\n"
 "  --vecsize                  OpenACC vector-size (default: 128)\n"
 "  --numgangs                 Number of OpenACC gangs (default: 7813)\n"
@@ -5997,7 +5997,7 @@ mchelp(char *pgmname)
   fprintf(stderr,
   "This instrument has been compiled with MPI support.\n  Use 'mpirun %s [options] [parm=value ...]'.\n", pgmname);
 #endif
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
   fprintf(stderr,
   "This instrument has been compiled with NVIDIA GPU support through OpenACC.\n  Running on systems without such devices will lead to segfaults.\nFurter, fprintf, sprintf and printf have been removed from any component TRACE.\n");
 #endif
@@ -6953,7 +6953,7 @@ int traceenabled = 1;
 #else
 int traceenabled = 0;
 #endif
-#define MCSTAS "/Users/peterwillendrup/micromamba/envs/mcstas-dev/share/mcstas/resources/"
+#define MCSTAS "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources/"
 int   defaultmain         = 1;
 char  instrument_name[]   = "PSI_source";
 char  instrument_source[] = "Minimal.instr";
@@ -7875,7 +7875,7 @@ int init(void) { /* called by mccode_main for PSI_source:INITIALISE */
 /* if on GPU, globally nullify sprintf,fprintf,printfs   */
 /* (Similar defines are available in each comp trace but */
 /*  those are not enough to handle external libs etc. )  */
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define fprintf(stderr,...) printf(__VA_ARGS__)
 #define sprintf(string,...) printf(__VA_ARGS__)
 #define exit(...) noprintf()
@@ -8282,7 +8282,7 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
 void raytrace_all(unsigned long long ncount, unsigned long seed) {
 
   // if on GPU and mcdotrace just exit
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   if (!mcdotrace) {
   #endif
 
@@ -8290,7 +8290,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   unsigned long long loops;
   loops = ceil((double)ncount/gpu_innerloop);
   /* if on GPU, printf has been globally nullified, re-enable here */
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   #undef strlen
   #undef strcmp
   #undef exit
@@ -8299,7 +8299,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   #undef fprintf
   #endif
 
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   if (ncount>gpu_innerloop) {
     printf("Defining %llu CPU loops around GPU kernel and adjusting ncount\n",loops);
     mcset_ncount(loops*gpu_innerloop);
@@ -8307,12 +8307,12 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     #endif
     loops=1;
     gpu_innerloop = ncount;
-    #ifdef OPENACC
+    #if defined(OPENACC) || defined(_OPENMP)
   }
     #endif
 
   for (unsigned long long cloop=0; cloop<loops; cloop++) {
-    #ifdef OPENACC
+    #if defined(OPENACC) || defined(_OPENMP)
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
@@ -8344,7 +8344,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   );
 
   // if on GPU and mcdotrace just exit
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
 
@@ -8359,14 +8359,14 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
   // if on GPU and mcdotrace just exit
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   if (!mcdotrace) {
   #endif
   // set up outer (CPU) loop / particle batches
   unsigned long long loops;
 
   /* if on GPU, printf has been globally nullified, re-enable here */
-   #ifdef OPENACC
+   #if defined(OPENACC) || defined(_OPENMP)
    #undef strlen
    #undef strcmp
    #undef exit
@@ -8381,7 +8381,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    /* #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) */
    /*#pragma omp target data map(tofrom:_instrument_var)*/
  { 
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   loops = ceil((double)ncount/gpu_innerloop);
   if (ncount>gpu_innerloop) {
     printf("Defining %llu CPU loops around kernel and adjusting ncount\n",loops);
@@ -8390,7 +8390,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
   #endif
     loops=1;
     gpu_innerloop = ncount;
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
 
@@ -8526,7 +8526,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
   printf("\n");
   // if on GPU and mcdotrace just exit
   printf("*** TRACE end *** (%i)\n",_instrument_var._counter);
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
 } /* raytrace_all_funnel */
@@ -8549,7 +8549,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 #undef _mctmp_a
 #undef _mctmp_b
 #undef _mctmp_c
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #undef strlen
 #undef strcmp
 #undef exit
@@ -9006,7 +9006,7 @@ int display(void) { /* called by mccode_main for PSI_source:DISPLAY */
 void* _getvar_parameters(char* compname)
 /* enables settings parameters based use of the GETPAR macro */
 {
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
     #define strcmp(a,b) str_comp(a,b)
   #endif
   if (!strcmp(compname, "source_arm")) return (void *) &(_source_arm_var);
@@ -9287,7 +9287,7 @@ int mccode_main(int argc, char *argv[])
   }
 #endif /* USE_MPI */
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef USE_MPI
   int num_devices = acc_get_num_devices(acc_device_nvidia);
   if(num_devices>0){
