@@ -8323,7 +8323,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny])
   #pragma omp target data map(tofrom:_instrument_var)
   {
-    #pragma omp target teams loop
+    #pragma omp target teams num_teams(64) thread_limit(16) loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -8409,7 +8409,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
     // init particles
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(tofrom: _mon_var, _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) map(tofrom:_instrument_var)
+    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(tofrom: _mon_var, _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) map(tofrom:_instrument_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
@@ -8436,7 +8436,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
     // iterate components
 
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(tofrom: _mon_var, _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) map(tofrom:_instrument_var)
+    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(tofrom: _mon_var, _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) map(tofrom:_instrument_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
