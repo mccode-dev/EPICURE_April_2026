@@ -57,7 +57,7 @@ double TT2 = 0, // [deg] Detector two theta
 double DetectorDist2 = 0.32, // [m] Distance to detector
 double TT3 = 90, // [deg] Detector two theta
 double DetectorDist3 = 0.25 // [m] Distance to detector
-
+)
 DECLARE 
 %{
 const double h = 6.62607E-34;
