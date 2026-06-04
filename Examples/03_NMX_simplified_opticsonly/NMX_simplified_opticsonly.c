@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: NMX_simplified_opticsonly.instr (NMX)
- * Date:       Thu Jun  4 14:37:28 2026
+ * Date:       Thu Jun  4 15:13:42 2026
  * File:       NMX_simplified_opticsonly.c
  * CFLAGS=
  */
@@ -267,7 +267,7 @@ void particle_uservar_init(_class_particle *p){
 #include <float.h>
 #include <inttypes.h>
 #include <stdint.h>
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #include <openacc.h>
 #ifndef GCCOFFLOAD
 #include <accelmath.h>
@@ -469,13 +469,13 @@ clock_t times (struct tms *__buffer) {
 #  endif
 #endif
 
-#ifdef OPENACC  /* default is to disable signals with PGI/OpenACC */
+#if defined(OPENACC) || defined(_OPENMP)  /* default is to disable signals with PGI/OpenACC */
 #  ifndef NOSIGNALS
 #    define NOSIGNALS 1
 #  endif
 #endif
 
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #  ifndef USE_OFF  /* default is to enable OFF when not using PGI/OpenACC */
 #    define USE_OFF
 #  endif
@@ -584,7 +584,7 @@ void destroy_darr3d(DArray3d a);
 #include "mpi.h"
 
 #ifdef OMPI_MPI_H  /* openmpi does not use signals: we may install our sighandler */
-#ifndef OPENACC    /* ... but only if we are not also running on GPU */
+#if !defined(OPENACC) && !defined(_OPENMP)    /* ... but only if we are not also running on GPU */
 #undef NOSIGNALS
 #endif
 #endif
@@ -1548,7 +1548,7 @@ mcstatic unsigned long long int mcrun_num            = 0;
 #endif
 
 /* String nullification on GPU and other replacements */
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int noprintf() {
   return 0;
 }
@@ -4794,7 +4794,7 @@ Coords coords_mirror(Coords a, Coords n) {
 
 /* coords_print: Print out vector values. */
 void coords_print(Coords a) {
-  #ifndef OPENACC
+  #if !defined(OPENACC) && !defined(_OPENMP)
   fprintf(stdout, "(%f, %f, %f)\n", a.x, a.y, a.z);
   #endif
   return;
@@ -5973,7 +5973,7 @@ mchelp(char *pgmname)
 "  --meta-type COMP:NAME      Print metadata format type specified in definition\n"
 "  --meta-data COMP:NAME      Print the metadata text\n"
 "  --source                   Show the instrument code which was compiled.\n"
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 "\n"
 "  --vecsize                  OpenACC vector-size (default: 128)\n"
 "  --numgangs                 Number of OpenACC gangs (default: 7813)\n"
@@ -5997,7 +5997,7 @@ mchelp(char *pgmname)
   fprintf(stderr,
   "This instrument has been compiled with MPI support.\n  Use 'mpirun %s [options] [parm=value ...]'.\n", pgmname);
 #endif
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
   fprintf(stderr,
   "This instrument has been compiled with NVIDIA GPU support through OpenACC.\n  Running on systems without such devices will lead to segfaults.\nFurter, fprintf, sprintf and printf have been removed from any component TRACE.\n");
 #endif
@@ -7195,7 +7195,7 @@ double ESS_2015_Schoenfeldt_thermal_Theta120(double beamportangle,int isleft);
 #endif
 #endif
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define exit(...) noprintf()
 #endif
 
@@ -7504,7 +7504,7 @@ double ESS_2015_Schoenfeldt_thermal_timedist(double time,double lambda,double he
 } /* end of ESS_2015_Schoenfeldt_thermal_timedist */
 
 /* end of ESS_butterfly-lib.c */
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #undef exit
 #endif
 
@@ -8793,7 +8793,7 @@ double Table_Value(t_Table Table, double X, long j)
   Y1 = Table_Index(Table,Index-1, j);
   Y2 = Table_Index(Table,Index  , j);
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define strcmp(a,b) str_comp(a,b)
 #endif
 
@@ -8804,7 +8804,7 @@ double Table_Value(t_Table Table, double X, long j)
     ret = Table_Interp1d_nearest(X, X1,Y1, X2,Y2);
   }
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef strcmp
 #undef strcmp
 #endif
@@ -8851,13 +8851,13 @@ double Table_Value2d(t_Table Table, double X, double Y)
     if (x2 != x1) z21=Table_Index(Table, x2, y1); else z21 = z11;
     if (y2 != y1) z22=Table_Index(Table, x2, y2); else z22 = z21;
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define strcmp(a,b) str_comp(a,b)
 #endif
 
     if (!strcmp(Table.method,"linear"))
       ret = Table_Interp2d(X,Y, x1,y1,x2,y2, z11,z12,z21,z22);
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef strcmp
 #undef strcmp
 #endif
@@ -18023,7 +18023,7 @@ _class_Progress_bar *class_Progress_bar_init(_class_Progress_bar *_comp
   if (percent * mcget_ncount () / 100 < 1e5) {
     percent = 1e5 * 100.0 / mcget_ncount ();
   }
-  #ifdef _OPENMP
+  #if defined(OPENACC) || defined(_OPENMP)
   time (&StartTime);
   #endif
 
@@ -19871,7 +19871,7 @@ void class_Progress_bar_trace(_class_Progress_bar *_comp
   #define infostring (_comp->infostring)
   SIG_MESSAGE("[_Origin_trace] component Origin=Progress_bar() TRACE [Progress_bar:0]");
 
-  #ifndef _OPENMP
+  #if !defined(OPENACC) && !defined(_OPENMP)
   double ncount;
   ncount = mcget_run_num ();
   if (!StartTime) {
@@ -24689,7 +24689,7 @@ _class_ESS_butterfly *class_ESS_butterfly_display(_class_ESS_butterfly *_comp
   SIG_MESSAGE("[_Source_display] component Source=ESS_butterfly() DISPLAY [ESS_butterfly:0]");
 
   printf("MCDISPLAY: component %s\n", _comp->_name);
-  #ifndef _OPENMP
+  #if !defined(OPENACC) && !defined(_OPENMP)
   magnify ("");
   butterfly_geometry (delta_y, jmax, cx, cz, orientation_angle, Beamlines, tx, ty, tz, rC1_x, rC1_z, rC2_x, rC2_z, rC3_x, rC3_z, rT1_x, rT1_z, rT2_x, rT2_z,
                       rT3_x, rT3_z, r11, r12, r21, r22, focus_xw, focus_yh);
@@ -26034,7 +26034,7 @@ int mccode_main(int argc, char *argv[])
   }
 #endif /* USE_MPI */
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef USE_MPI
   int num_devices = acc_get_num_devices(acc_device_nvidia);
   if(num_devices>0){
