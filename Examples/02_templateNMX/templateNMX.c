@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: templateNMX.instr (templateNMX)
- * Date:       Thu Jun  4 14:16:27 2026
+ * Date:       Thu Jun  4 15:03:58 2026
  * File:       templateNMX.c
  * CFLAGS=
  */
@@ -103,12 +103,12 @@ _class_particle mcgenstate(void) {
 
 double particle_getvar(_class_particle *p, char *name, int *suc);
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int str_comp(char *str1, char *str2);
 #endif
 
 double particle_getvar(_class_particle *p, char *name, int *suc){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int s=1;
@@ -133,12 +133,12 @@ double particle_getvar(_class_particle *p, char *name, int *suc){
 
 void* particle_getvar_void(_class_particle *p, char *name, int *suc);
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int str_comp(char *str1, char *str2);
 #endif
 
 void* particle_getvar_void(_class_particle *p, char *name, int *suc){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int s=1;
@@ -161,7 +161,7 @@ void* particle_getvar_void(_class_particle *p, char *name, int *suc){
 int particle_setvar_void(_class_particle *, char *, void*);
 
 int particle_setvar_void(_class_particle *p, char *name, void* value){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int rval=1;
@@ -182,7 +182,7 @@ int particle_setvar_void(_class_particle *p, char *name, void* value){
 int particle_setvar_void_array(_class_particle *, char *, void*, int);
 
 int particle_setvar_void_array(_class_particle *p, char *name, void* value, int elements){
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #define str_comp strcmp
 #endif
   int rval=1;
@@ -267,7 +267,7 @@ void particle_uservar_init(_class_particle *p){
 #include <float.h>
 #include <inttypes.h>
 #include <stdint.h>
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #include <openacc.h>
 #ifndef GCCOFFLOAD
 #include <accelmath.h>
@@ -469,13 +469,13 @@ clock_t times (struct tms *__buffer) {
 #  endif
 #endif
 
-#ifdef OPENACC  /* default is to disable signals with PGI/OpenACC */
+#if defined(OPENACC) || defined(_OPENMP)  /* default is to disable signals with PGI/OpenACC */
 #  ifndef NOSIGNALS
 #    define NOSIGNALS 1
 #  endif
 #endif
 
-#ifndef OPENACC
+#if !defined(OPENACC) && !defined(_OPENMP)
 #  ifndef USE_OFF  /* default is to enable OFF when not using PGI/OpenACC */
 #    define USE_OFF
 #  endif
@@ -584,7 +584,7 @@ void destroy_darr3d(DArray3d a);
 #include "mpi.h"
 
 #ifdef OMPI_MPI_H  /* openmpi does not use signals: we may install our sighandler */
-#ifndef OPENACC    /* ... but only if we are not also running on GPU */
+#if !defined(OPENACC) && !defined(_OPENMP)    /* ... but only if we are not also running on GPU */
 #undef NOSIGNALS
 #endif
 #endif
@@ -1548,7 +1548,7 @@ mcstatic unsigned long long int mcrun_num            = 0;
 #endif
 
 /* String nullification on GPU and other replacements */
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 int noprintf() {
   return 0;
 }
@@ -4794,7 +4794,7 @@ Coords coords_mirror(Coords a, Coords n) {
 
 /* coords_print: Print out vector values. */
 void coords_print(Coords a) {
-  #ifndef OPENACC
+  #if !defined(OPENACC) && !defined(_OPENMP)
   fprintf(stdout, "(%f, %f, %f)\n", a.x, a.y, a.z);
   #endif
   return;
@@ -5973,7 +5973,7 @@ mchelp(char *pgmname)
 "  --meta-type COMP:NAME      Print metadata format type specified in definition\n"
 "  --meta-data COMP:NAME      Print the metadata text\n"
 "  --source                   Show the instrument code which was compiled.\n"
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 "\n"
 "  --vecsize                  OpenACC vector-size (default: 128)\n"
 "  --numgangs                 Number of OpenACC gangs (default: 7813)\n"
@@ -5997,7 +5997,7 @@ mchelp(char *pgmname)
   fprintf(stderr,
   "This instrument has been compiled with MPI support.\n  Use 'mpirun %s [options] [parm=value ...]'.\n", pgmname);
 #endif
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
   fprintf(stderr,
   "This instrument has been compiled with NVIDIA GPU support through OpenACC.\n  Running on systems without such devices will lead to segfaults.\nFurter, fprintf, sprintf and printf have been removed from any component TRACE.\n");
 #endif
@@ -8065,7 +8065,7 @@ double Table_Value(t_Table Table, double X, long j)
   Y1 = Table_Index(Table,Index-1, j);
   Y2 = Table_Index(Table,Index  , j);
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define strcmp(a,b) str_comp(a,b)
 #endif
 
@@ -8076,7 +8076,7 @@ double Table_Value(t_Table Table, double X, long j)
     ret = Table_Interp1d_nearest(X, X1,Y1, X2,Y2);
   }
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef strcmp
 #undef strcmp
 #endif
@@ -8123,13 +8123,13 @@ double Table_Value2d(t_Table Table, double X, double Y)
     if (x2 != x1) z21=Table_Index(Table, x2, y1); else z21 = z11;
     if (y2 != y1) z22=Table_Index(Table, x2, y2); else z22 = z21;
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define strcmp(a,b) str_comp(a,b)
 #endif
 
     if (!strcmp(Table.method,"linear"))
       ret = Table_Interp2d(X,Y, x1,y1,x2,y2, z11,z12,z21,z22);
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef strcmp
 #undef strcmp
 #endif
@@ -8653,7 +8653,7 @@ double Table_Interp2d(double x, double y,
 #endif
 
 #ifndef OFF_INTERSECT_MAX
-#ifdef _OPENMP
+#if defined(OPENACC) || defined(_OPENMP)
 #define OFF_INTERSECT_MAX 100
 #else
 #define OFF_INTERSECT_MAX 1024
@@ -8856,7 +8856,7 @@ int quadraticSolve(double* eq, double* x1, double* x2);
 #ifndef INTEROFF_LIB_C
 #define INTEROFF_LIB_C "$Revision$"
 
-#ifdef _OPENMP // If on GPU map fprintf to printf
+#if defined(OPENACC) || defined(_OPENMP) // If on GPU map fprintf to printf
 #define fprintf(stderr,...) printf(__VA_ARGS__)
 #endif
 
@@ -9664,7 +9664,7 @@ long off_init(  char *offfile, double xwidth, double yheight, double zdepth,
   data->polySize   = polySize;
   data->faceSize   = faceSize;
   data->filename   = offfile;
-  #ifdef _OPENMP
+  #if defined(OPENACC) || defined(_OPENMP)
   acc_attach((void *)&vtxArray);
   acc_attach((void *)&normalArray);
   acc_attach((void *)&faceArray);
@@ -9879,7 +9879,7 @@ int off_intersect_all(double* t0, double* t3,
 			     data->vtxArray, data->vtxSize, data->faceArray,
 			     data->faceSize, data->normalArray );
     }
-    #ifndef _OPENMP
+    #if !defined(OPENACC) && !defined(_OPENMP)
     qsort(data->intersects, t_size, sizeof(intersection),  off_compare);
     #else
     #ifdef USE_OFF
@@ -10124,7 +10124,7 @@ void off_display(off_struct data)
 /* end of interoff-lib.c */
 #endif // INTEROFF_LIB_C
 
-  #ifndef _OPENMP
+  #if !defined(OPENACC) && !defined(_OPENMP)
 
 //////////////////////////////////////////////////////////////////////////////
 //OpenCL lilbrary file for McStas
@@ -12120,7 +12120,7 @@ _class_Progress_bar *class_Progress_bar_init(_class_Progress_bar *_comp
   if (percent * mcget_ncount () / 100 < 1e5) {
     percent = 1e5 * 100.0 / mcget_ncount ();
   }
-  #ifdef _OPENMP
+  #if defined(OPENACC) || defined(_OPENMP)
   time (&StartTime);
   #endif
 
@@ -12578,7 +12578,7 @@ int init(void) { /* called by mccode_main for templateNMX:INITIALISE */
 /* if on GPU, globally nullify sprintf,fprintf,printfs   */
 /* (Similar defines are available in each comp trace but */
 /*  those are not enough to handle external libs etc. )  */
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #define fprintf(stderr,...) printf(__VA_ARGS__)
 #define sprintf(string,...) printf(__VA_ARGS__)
 #define exit(...) noprintf()
@@ -12606,7 +12606,7 @@ void class_Progress_bar_trace(_class_Progress_bar *_comp
   #define infostring (_comp->infostring)
   SIG_MESSAGE("[_Origin_trace] component Origin=Progress_bar() TRACE [Progress_bar:0]");
 
-  #ifndef _OPENMP
+  #if !defined(OPENACC) && !defined(_OPENMP)
   double ncount;
   ncount = mcget_run_num ();
   if (!StartTime) {
@@ -12863,7 +12863,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   double t1, t2 = 0;  /* Entry and exit times in sample */
   struct hkl_data* L; /* Structure factor list */
   int i;              /* Index into structure factor list */
-                      #ifndef _OPENMP
+                      #if !defined(OPENACC) && !defined(_OPENMP)
   struct tau_data* T; /* List of reflections close to Ewald sphere */
                       #else
   struct tau_data T[MCSX_REFL_SLIST_SIZE];
@@ -12913,7 +12913,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   char type; /* type of last event: t=transmit,c=coherent or i=incoherent */
   int itype; /* type of last event: t=1,c=2 or i=3 */
 
-  #ifdef _OPENMP
+  #if defined(OPENACC) || defined(_OPENMP)
   #ifdef USE_OFF
   off_struct thread_offdata = offdata;
   #endif
@@ -12957,7 +12957,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
     type = '\0';
     itype = 0;
 
-    #ifndef _OPENMP
+    #if !defined(OPENACC) && !defined(_OPENMP)
     T = tau_list;
     hkl_info.type = type;
     #endif
@@ -12983,7 +12983,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
       if (!intersect || t2 * v < -1e-9 || t1 * v > 1e-9) {
         /* neutron is leaving the sample */
         if (hkl_info.flag_warning < 10)
-          #ifndef _OPENMP
+          #if !defined(OPENACC) && !defined(_OPENMP)
           fprintf (stderr,
                    "Single_crystal: %s: Warning: neutron has unexpectedly left the crystal!\n"
                    "                t1=%g t2=%g x=%g y=%g z=%g vx=%g vy=%g vz=%g\n",
@@ -13057,7 +13057,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
 
       // Condition to skip calculation of coherent cross section when, needed for extra_order feature
       if (order == 0 || extra_order == 0 || event_counter < order) {
-        #ifndef _OPENMP
+        #if !defined(OPENACC) && !defined(_OPENMP)
         /* in case we use 'SPLIT' then consecutive neutrons can be identical when entering here
            and we may skip the hkl_search call. One tau_list is reserved for data for the initial
                ray results so that it potentially can be reused later. */
@@ -13087,7 +13087,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
             tau_count = hkl_search (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect);
 
           /* store ki so that we can check for further SPLIT iterations */
-          #ifndef _OPENMP
+          #if !defined(OPENACC) && !defined(_OPENMP)
           if (tau_count > hkl_info.max_tau_count) {
             hkl_info.max_tau_count = tau_count;
           }
@@ -13149,7 +13149,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         type = 't';
         if (!itype)
           itype = 1;
-        #ifndef _OPENMP
+        #if !defined(OPENACC) && !defined(_OPENMP)
         hkl_info.type = type;
         #endif
 
@@ -13216,7 +13216,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         type = 'i';
         if (!itype)
           itype = 2;
-        #ifndef _OPENMP
+        #if !defined(OPENACC) && !defined(_OPENMP)
         hkl_info.type = type;
         #endif
       } else {
@@ -13227,7 +13227,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         sum = 0;
         j = hkl_select (T, tau_count, coh_refl, &sum, _particle);
         if (j >= tau_count) {
-          #ifndef _OPENMP
+          #if !defined(OPENACC) && !defined(_OPENMP)
           if (hkl_info.flag_warning < 10)
             fprintf (stderr,
                      "Single_crystal: Error: Illegal tau search "
@@ -13264,7 +13264,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         type = 'c';
         if (!itype)
           itype = 3;
-        #ifndef _OPENMP
+        #if !defined(OPENACC) && !defined(_OPENMP)
         hkl_info.type = type;
         hkl_info.h = L[i].h;
         hkl_info.k = L[i].k;
@@ -13594,7 +13594,7 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
 void raytrace_all(unsigned long long ncount, unsigned long seed) {
 
   // if on GPU and mcdotrace just exit
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   if (!mcdotrace) {
   #endif
 
@@ -13602,7 +13602,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   unsigned long long loops;
   loops = ceil((double)ncount/gpu_innerloop);
   /* if on GPU, printf has been globally nullified, re-enable here */
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   #undef strlen
   #undef strcmp
   #undef exit
@@ -13611,7 +13611,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   #undef fprintf
   #endif
 
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   if (ncount>gpu_innerloop) {
     printf("Defining %llu CPU loops around GPU kernel and adjusting ncount\n",loops);
     mcset_ncount(loops*gpu_innerloop);
@@ -13619,12 +13619,12 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     #endif
     loops=1;
     gpu_innerloop = ncount;
-    #ifdef OPENACC
+    #if defined(OPENACC) || defined(_OPENMP)
   }
     #endif
 
   for (unsigned long long cloop=0; cloop<loops; cloop++) {
-    #ifdef OPENACC
+    #if defined(OPENACC) || defined(_OPENMP)
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
@@ -13656,7 +13656,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   );
 
   // if on GPU and mcdotrace just exit
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
 
@@ -13671,14 +13671,14 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
   // if on GPU and mcdotrace just exit
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   if (!mcdotrace) {
   #endif
   // set up outer (CPU) loop / particle batches
   unsigned long long loops;
 
   /* if on GPU, printf has been globally nullified, re-enable here */
-   #ifdef OPENACC
+   #if defined(OPENACC) || defined(_OPENMP)
    #undef strlen
    #undef strcmp
    #undef exit
@@ -13693,7 +13693,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    #pragma omp target data map(tofrom: _det_var)
    #pragma omp target data map(tofrom:_instrument_var)
  { 
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   loops = ceil((double)ncount/gpu_innerloop);
   if (ncount>gpu_innerloop) {
     printf("Defining %llu CPU loops around kernel and adjusting ncount\n",loops);
@@ -13702,7 +13702,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
   #endif
     loops=1;
     gpu_innerloop = ncount;
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
 
@@ -13859,7 +13859,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
   printf("\n");
   // if on GPU and mcdotrace just exit
   printf("*** TRACE end *** (%i)\n",_instrument_var._counter);
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
 } /* raytrace_all_funnel */
@@ -13882,7 +13882,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 #undef _mctmp_a
 #undef _mctmp_b
 #undef _mctmp_c
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #undef strlen
 #undef strcmp
 #undef exit
@@ -14523,7 +14523,7 @@ int display(void) { /* called by mccode_main for templateNMX:DISPLAY */
 void* _getvar_parameters(char* compname)
 /* enables settings parameters based use of the GETPAR macro */
 {
-  #ifdef OPENACC
+  #if defined(OPENACC) || defined(_OPENMP)
     #define strcmp(a,b) str_comp(a,b)
   #endif
   if (!strcmp(compname, "Origin")) return (void *) &(_Origin_var);
@@ -14804,7 +14804,7 @@ int mccode_main(int argc, char *argv[])
   }
 #endif /* USE_MPI */
 
-#ifdef OPENACC
+#if defined(OPENACC) || defined(_OPENMP)
 #ifdef USE_MPI
   int num_devices = acc_get_num_devices(acc_device_nvidia);
   if(num_devices>0){
