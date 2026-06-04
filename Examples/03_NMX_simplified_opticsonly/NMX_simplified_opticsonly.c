@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: NMX_simplified_opticsonly.instr (NMX)
- * Date:       Thu Jun  4 15:13:42 2026
+ * Date:       Thu Jun  4 15:36:07 2026
  * File:       NMX_simplified_opticsonly.c
  * CFLAGS=
  */
@@ -267,10 +267,12 @@ void particle_uservar_init(_class_particle *p){
 #include <float.h>
 #include <inttypes.h>
 #include <stdint.h>
-#if defined(OPENACC) || defined(_OPENMP)
+#if defined(OPENACC)
 #include <openacc.h>
 #ifndef GCCOFFLOAD
 #include <accelmath.h>
+#elif defined(_OPENMP)
+#include <omp.h>
 #else
 #include <math.h>
 #endif
