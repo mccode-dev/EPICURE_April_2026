@@ -8114,14 +8114,16 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
     int j = floor ((y - ymin) * ny / (ymax - ymin));
 
     double p2 = p * p;
+    int idx = i + ny * j;
     #pragma omp atomic update
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
     #pragma omp atomic update
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
     #pragma omp atomic update
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
+
 
     SCATTER;
   }
@@ -8165,8 +8167,8 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
 
 #ifndef FUNNEL
 int raytrace(_class_particle* _particle) { /* single event propagation, called by mccode_main for PSI_source:TRACE */
-
   /* init variables and counters for TRACE */
+  #pragma omp declare target link(_source_var, _mon_var, _Lmon_var, _PSDmon_var)
   #undef ABSORB0
   #undef ABSORB
   #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++;} while(0)
@@ -8274,7 +8276,6 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
   DEBUG_LEAVE()
   particle_restore(_particle, &_particle_save);
   DEBUG_STATE()
-
   return(_particle->_index);
 } /* raytrace */
 
@@ -8311,19 +8312,31 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   }
     #endif
 
+  #pragma omp target enter data map(to: _mon_var,                                               \
+				        _Lmon_var.L_N[0:_Lmon_var.nL],	                        \
+					_Lmon_var.L_p[0:_Lmon_var.nL],                          \
+					_Lmon_var.L_p2[0:_Lmon_var.nL],                         \
+				        _Lmon_var,                  				\
+					_PSDmon_var.PSD_N[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+					_PSDmon_var.PSD_p[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+					_PSDmon_var.PSD_p2[0][0:_PSDmon_var.ny*_PSDmon_var.nx], \
+				        _PSDmon_var,                    			\
+                                        _instrument_var, _source_var)
+
   for (unsigned long long cloop=0; cloop<loops; cloop++) {
     #if defined(OPENACC) || defined(_OPENMP)
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-  #pragma omp target data map(tofrom: _source_arm_var)
-  #pragma omp target data map(tofrom: _source_var)
-  #pragma omp target data map(tofrom: _mon_var)
-  #pragma omp target data map(tofrom: _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL])
-  #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny])
-  #pragma omp target data map(tofrom:_instrument_var)
-  {
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+  /* #pragma omp target data map(tofrom: _source_arm_var) */
+  /* #pragma omp target data map(tofrom: _source_var) */
+  /* #pragma omp target data map(tofrom: _mon_var) */
+  /* #pragma omp target data map(tofrom: _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL]) */
+  /* #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) */
+  /* #pragma omp target data map(tofrom:_instrument_var) */
+  /*   { */
+    #pragma omp target teams num_teams(64) thread_limit(16)
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -8333,21 +8346,30 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
       #endif
 
       srandom(_hash((pidx+1)*(seed+1)));
-
       raytrace(_particle);
-    } /* inner for */
+    } /* omp loop */
     seed = seed+gpu_innerloop;
-  } /* target data map section */
-} /* CPU for */
+
+  } /* CPU for */
   MPI_MASTER(
   printf("*** TRACE end *** (%i)\n",_instrument_var._counter);
   );
 
+  #pragma omp target update from(_mon_var,	                       			\
+                                 _Lmon_var.L_N[0:_Lmon_var.nL],                          \
+                                 _Lmon_var.L_p[0:_Lmon_var.nL],                          \
+                                 _Lmon_var.L_p2[0:_Lmon_var.nL],                         \
+                                 _PSDmon_var.PSD_N[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+                                 _PSDmon_var.PSD_p[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+                                 _PSDmon_var.PSD_p2[0][0:_PSDmon_var.ny*_PSDmon_var.nx], \
+                                 _instrument_var)
+
+#pragma omp target exit data map(delete: _mon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var.PSD_N[0][0:_PSDmon_var.ny*_PSDmon_var.nx], _PSDmon_var.PSD_p[0][0:_PSDmon_var.ny*_PSDmon_var.nx], _PSDmon_var.PSD_p2[0][0:_PSDmon_var.ny*_PSDmon_var.nx], _Lmon_var,  _PSDmon_var, _instrument_var, _source_var)
   // if on GPU and mcdotrace just exit
   #if defined(OPENACC) || defined(_OPENMP)
   }
   #endif
-
+  
 } /* raytrace_all */
 
 #endif //no-FUNNEL
@@ -8380,6 +8402,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    /* #pragma omp target data map(tofrom: _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL]) */
    /* #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) */
    /*#pragma omp target data map(tofrom:_instrument_var)*/
+
  { 
   #if defined(OPENACC) || defined(_OPENMP)
   loops = ceil((double)ncount/gpu_innerloop);
@@ -8404,12 +8427,27 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
   #undef ABSORB
   #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++; } while(0)
   #define ABSORB ABSORB0
+
+  #pragma omp target enter data map(to: particles[0:livebatchsize],                             \
+                                        weights[0:livebatchsize],                               \
+					_mon_var,                                               \
+					_Lmon_var,                                              \
+				        _Lmon_var.L_N[0:_Lmon_var.nL],                          \
+					_Lmon_var.L_p[0:_Lmon_var.nL],                          \
+					_Lmon_var.L_p2[0:_Lmon_var.nL],                         \
+					_PSDmon_var,                                            \
+					_PSDmon_var.PSD_N[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+					_PSDmon_var.PSD_p[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+					_PSDmon_var.PSD_p2[0][0:_PSDmon_var.ny*_PSDmon_var.nx], \
+					_instrument_var)
+  
   // outer loop / particle batches
   for (unsigned long long cloop=0; cloop<loops; cloop++) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
-
+    
     // init particles
-    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(tofrom: _mon_var, _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) map(tofrom:_instrument_var)
+    #pragma omp target teams num_teams(64) thread_limit(16)
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
@@ -8419,24 +8457,28 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
       _particle->_uid += mpi_node_rank * ncount; 
       #endif
       int old;
-      #pragma omp atomic capture
-      {
-        old=_instrument_var._counter+1; _instrument_var._counter=old;
-      }
+      #pragma omp atomic update
+      _instrument_var._counter += 1;
+      /* #pragma omp atomic capture */
+      /* { */
+      /*   old=_instrument_var._counter+1; _instrument_var._counter=old; */
+      /* } */
       weights[pidx]=p;
       srandom(_hash((pidx+1)*(seed+1))); // _particle->state usage built into srandom macro
     }
 
-    double psum=0;
-    // Check that we populated GPU with data and get back a reasonable sum
-    for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
-      psum+=weights[pidx];
-    }
-   printf("** Particle creation end weightsum=%g\n",psum);
+    /* #pragma omp target update from(weights[0:livebatchsize]) */
+    /* double psum=0; */
+    /* // Check that we populated GPU with data and get back a reasonable sum */
+    /* for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) { */
+    /*   psum+=weights[pidx]; */
+    /* } */
+    /* printf("** Particle creation end weightsum=%g\n",psum); */
 
     // iterate components
 
-    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(tofrom: _mon_var, _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) map(tofrom:_instrument_var)
+    #pragma omp target teams num_teams(64) thread_limit(16)
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
@@ -8508,21 +8550,33 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
       weights[pidx]=p;
     }
 
-    psum=0;
-    // Check that we populated GPU with data and get back a reasonable sum
-    for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
-      psum+=weights[pidx];
-    }
-   printf("** Particle TRACE end weightsum=%g\n",psum);
+   /*  #pragma omp target update from(weights[0:livebatchsize]) */
+   /*  psum=0; */
+   /*  // Check that we populated GPU with data and get back a reasonable sum */
+   /*  for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) { */
+   /*    psum+=weights[pidx]; */
+   /*  } */
+   /* printf("** Particle TRACE end weightsum=%g\n",psum); */
 
     // jump to next viable seed
     seed = seed + gpu_innerloop;
   } // outer loop / particle batches
 
+  #pragma omp target update from(_mon_var,                                               \
+                                 _Lmon_var.L_N[0:_Lmon_var.nL],                          \
+                                 _Lmon_var.L_p[0:_Lmon_var.nL],                          \
+                                 _Lmon_var.L_p2[0:_Lmon_var.nL],                         \
+                                 _PSDmon_var.PSD_N[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+                                 _PSDmon_var.PSD_p[0][0:_PSDmon_var.ny*_PSDmon_var.nx],  \
+                                 _PSDmon_var.PSD_p2[0][0:_PSDmon_var.ny*_PSDmon_var.nx], \
+                                 _instrument_var)
+  //#pragma omp target update from(particles[0:livebatchsize], weights[0:livebatchsize], _mon_var, _Lmon_var, _PSDmon_var, _instrument_var)
+  #pragma omp target exit data map(delete: particles[0:livebatchsize], weights[0:livebatchsize], _mon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL], _PSDmon_var.PSD_N[0][0:_PSDmon_var.ny*_PSDmon_var.nx], _PSDmon_var.PSD_p[0][0:_PSDmon_var.ny*_PSDmon_var.nx], _PSDmon_var.PSD_p2[0][0:_PSDmon_var.ny*_PSDmon_var.nx], _Lmon_var,  _PSDmon_var, _instrument_var)
+  
   free(particles);
   free(pbuffer);
  } /* data map region end*/
-
+ 
   printf("\n");
   // if on GPU and mcdotrace just exit
   printf("*** TRACE end *** (%i)\n",_instrument_var._counter);
