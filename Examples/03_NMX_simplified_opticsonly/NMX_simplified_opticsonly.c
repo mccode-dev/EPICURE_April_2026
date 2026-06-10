@@ -10635,7 +10635,6 @@ struct _struct_PSD_monitor {
 typedef struct _struct_PSD_monitor _class_PSD_monitor;
 _class_PSD_monitor _psdSample_var;
 
-
 /* Parameters for component type 'Divergence_monitor' */
 struct _struct_Divergence_monitor {
   char     _name[256]; /* e.g. divAtSample */
@@ -10749,6 +10748,8 @@ struct _struct_DivLambda_monitor {
 };
 typedef struct _struct_DivLambda_monitor _class_DivLambda_monitor;
 _class_DivLambda_monitor _divlSample_var;
+
+#pragma omp declare target link(_Origin_var, _Source_var, _PortOrig_var, _sourceMantid_var, _MonolithGuide_var, _armCurvedGuide_var, _CurvedGuide1_var, _CurvedGuide2_var, _CurvedGuide3_var, _CurvedGuide4_var, _CurvedGuide5_var, _CurvedGuide6_var, _CurvedGuide7_var, _CurvedGuide8_var,_CurvedGuide9_var, _CurvedGuide10_var,_CurvedGuide11_var, _CurvedGuide12_var, _CurvedGuide13_var,_CurvedGuide14_var, _CurvedGuide15_var, _CurvedGuide16_var, _CurvedGuide17_var, _CurvedGuide18_var, _CurvedGuide19_var, _CurvedGuide20_var, _CurvedGuide21_var, _CurvedGuide22_var, _CurvedGuide23_var, _CurvedGuide24_var, _CurvedGuide25_var, _CurvedGuide26_var, _CurvedGuide27_var, _CurvedGuide28_var, _CurvedGuide29_var, _CurvedGuide30_var, _CurvedGuide31_var, _CurvedGuide32_var, _CurvedGuide33_var, _CurvedGuide34_var, _CurvedGuide35_var, _CurvedGuide36_var, _CurvedGuide37_var, _armEndCurved_var, _StraightSegment_var, _armSecondaryShutter_1_var, _Chopper1_var, _armEndChopper1_var, _NeutronGuide5_2_var, _armChopper2_var, _Chopper2A_pos_var, _Chopper2A_var, _Chopper2B_pos_var, _Chopper2B_var, _armEndChopper2_var, _NeutronGuide7_var, _armEndStraight2_var, _armStartFocusing_var, _EllipticGuide_var, _armEndFocusing_var, _start_backend_var, _Slit_1_var, _Scraper_1_var, _Scraper_2_var, _Scraper_3_var, _Slit_2_var, _PinholeCollimator_var, _sample_position_var, _arm_Detector_2_direction_var, _arm_Detector_2_var, _arm_Detector_1_direction_var, _arm_Detector_1_var, _arm_Detector_0_direction_var, _arm_Detector_0_var, _sampleMantid_var, _psdSample_var, _divAtSample_var, _divAtSampleOverview_var, _toflSample_var, _divlSample_var, _Slit_secondary_shutter_1_1_var)
 
 int mcNUMCOMP = 82;
 
@@ -20776,14 +20777,15 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
     int j = floor ((y - ymin) * ny / (ymax - ymin));
 
     double p2 = p * p;
+    int idx = i + ny * j;
     #pragma omp atomic update
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
     #pragma omp atomic update
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
     #pragma omp atomic update
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
 
     SCATTER;
   }
@@ -20859,12 +20861,14 @@ void class_Divergence_monitor_trace(_class_Divergence_monitor *_comp
       i = floor ((h_div + maxdiv_h) * nh / (2.0 * maxdiv_h));
       j = floor ((v_div + maxdiv_v) * nv / (2.0 * maxdiv_v));
       double p2 = p * p;
-      #pragma acc atomic
-      Div_N[i][j] = Div_N[i][j] + 1;
-      #pragma acc atomic
-      Div_p[i][j] = Div_p[i][j] + p;
-      #pragma acc atomic
-      Div_p2[i][j] = Div_p2[i][j] + p2;
+      int idx = i + nv * j;
+
+      #pragma omp atomic update
+      Div_N[0][idx] = Div_N[0][idx] + 1;
+      #pragma omp atomic update
+      Div_p[0][idx] = Div_p[0][idx] + p;
+      #pragma omp atomic update
+      Div_p2[0][idx] = Div_p2[0][idx] + p2;
       SCATTER;
     }
   }
@@ -20944,13 +20948,14 @@ void class_TOFLambda_monitor_trace(_class_TOFLambda_monitor *_comp
       j = floor ((t - tt_0) * nt / (tt_1 - tt_0));
       /*  printf("tt_0, tt_1, nt %g %g %i t j %g %i \n",tt_0,tt_1,nt,t,j);
        */
+      int idx = j + nt * i;
       double p2 = p * p;
-      #pragma acc atomic
-      TOFL_N[j][i] = TOFL_N[j][i] + 1;
-      #pragma acc atomic
-      TOFL_p[j][i] = TOFL_p[j][i] + p;
-      #pragma acc atomic
-      TOFL_p2[j][i] = TOFL_p2[j][i] + p2;
+      #pragma omp atomic update
+      TOFL_N[0][idx] = TOFL_N[0][idx] + 1;
+      #pragma omp atomic update
+      TOFL_p[0][idx] = TOFL_p[0][idx] + p;
+      #pragma omp atomic update
+      TOFL_p2[0][idx] = TOFL_p2[0][idx] + p2;
     }
   }
   if (restore_neutron) {
@@ -21033,16 +21038,16 @@ void class_DivLambda_monitor_trace(_class_DivLambda_monitor *_comp
     if (div < maxdiv_h && div > -maxdiv_h) {
       i = floor ((lambda - Lmin) * nL / (Lmax - Lmin));
       j = floor ((div + maxdiv_h) * nh / (2.0 * maxdiv_h));
-
+      int idx = i + nh * j;
       double p2 = p * p;
-      #pragma acc atomic
-      Div_N[i][j] = Div_N[i][j] + 1;
+      #pragma omp atomic update
+      Div_N[0][idx] = Div_N[0][idx] + 1;
 
-      #pragma acc atomic
-      Div_p[i][j] = Div_p[i][j] + p;
+      #pragma omp atomic update
+      Div_p[0][idx] = Div_p[0][idx] + p;
 
-      #pragma acc atomic
-      Div_p2[i][j] = Div_p2[i][j] + p2;
+      #pragma omp atomic update
+      Div_p2[0][idx] = Div_p2[0][idx] + p2;
 
       SCATTER;
     }
@@ -22586,14 +22591,31 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 #pragma omp target data map(tofrom: _arm_Detector_0_direction_var)
 #pragma omp target data map(tofrom: _arm_Detector_0_var)
 #pragma omp target data map(tofrom: _sampleMantid_var)
-#pragma omp target data map(tofrom: _psdSample_var)
-#pragma omp target data map(tofrom: _divAtSample_var)
-#pragma omp target data map(tofrom: _divAtSampleOverview_var)
-#pragma omp target data map(tofrom: _toflSample_var)
 #pragma omp target data map(tofrom: _divlSample_var)
+#pragma omp target data map(tofrom: _psdSample_var.PSD_N[0][0:_psdSample_var.ny*_psdSample_var.nx], \
+			    _psdSample_var.PSD_p[0][0:_psdSample_var.ny*_psdSample_var.nx], \
+			    _psdSample_var.PSD_p2[0][0:_psdSample_var.ny*_psdSample_var.nx], \
+			    _psdSample_var)
+#pragma omp target data map(tofrom: _divAtSample_var.Div_N[0][0:_divAtSample_var.nh*_divAtSample_var.nv], \
+			    _divAtSample_var.Div_p[0][0:_divAtSample_var.nh*_divAtSample_var.nv], \
+			    _divAtSample_var.Div_p2[0][0:_divAtSample_var.nh*_divAtSample_var.nv], \
+			    _divAtSample_var)
+#pragma omp target data map(tofrom: _divAtSampleOverview_var.Div_N[0][0:_divAtSampleOverview_var.nh*_divAtSampleOverview_var.nv], \
+			    _divAtSampleOverview_var.Div_p[0][0:_divAtSampleOverview_var.nh*_divAtSampleOverview_var.nv], \
+			    _divAtSampleOverview_var.Div_p2[0][0:_divAtSampleOverview_var.nh*_divAtSampleOverview_var.nv], \
+			    _divAtSampleOverview_var)
+#pragma omp target data map(tofrom: _toflSample_var.TOFL_N[0][0:_toflSample_var.nL*_toflSample_var.nt], \
+			    _toflSample_var.TOFL_p[0][0:_toflSample_var.nL*_toflSample_var.nt], \
+			    _toflSample_var.TOFL_p2[0][0:_toflSample_var.nL*_toflSample_var.nt], \
+			    _toflSample_var)
+#pragma omp target data map(tofrom: _divlSample_var.Div_N[0][0:_divlSample_var.nL*_divlSample_var.nh], \
+			    _divlSample_var.Div_p[0][0:_divlSample_var.nL*_divlSample_var.nh], \
+			    _divlSample_var.Div_p2[0][0:_divlSample_var.nL*_divlSample_var.nh], \
+			    _divlSample_var)
 #pragma omp target data map(to:_instrument_var)
   {
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+    #pragma omp target teams num_teams(64) thread_limit(16)
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -22756,7 +22778,8 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
     // init particles
-    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
+    #pragma omp target teams num_teams(64) thread_limit(16) map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
