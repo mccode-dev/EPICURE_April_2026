@@ -7173,6 +7173,8 @@ struct _struct_PSD_monitor {
 typedef struct _struct_PSD_monitor _class_PSD_monitor;
 _class_PSD_monitor _PSDmon_var;
 
+#pragma omp declare target link(_source_var, _mon_var, _Lmon_var, _PSDmon_var)
+
 int mcNUMCOMP = 5;
 
 /* User declarations from instrument definition. Can define functions. */
@@ -8168,7 +8170,7 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
 #ifndef FUNNEL
 int raytrace(_class_particle* _particle) { /* single event propagation, called by mccode_main for PSI_source:TRACE */
   /* init variables and counters for TRACE */
-  #pragma omp declare target link(_source_var, _mon_var, _Lmon_var, _PSDmon_var)
+  //#pragma omp declare target link(_source_var, _mon_var, _Lmon_var, _PSDmon_var)
   #undef ABSORB0
   #undef ABSORB
   #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++;} while(0)
@@ -8328,13 +8330,6 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-  /* #pragma omp target data map(tofrom: _source_arm_var) */
-  /* #pragma omp target data map(tofrom: _source_var) */
-  /* #pragma omp target data map(tofrom: _mon_var) */
-  /* #pragma omp target data map(tofrom: _Lmon_var, _Lmon_var.L_N[0:_Lmon_var.nL], _Lmon_var.L_p[0:_Lmon_var.nL], _Lmon_var.L_p2[0:_Lmon_var.nL]) */
-  /* #pragma omp target data map(tofrom: _PSDmon_var, _PSDmon_var.PSD_N[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p[0:_PSDmon_var.nx][0:_PSDmon_var.ny], _PSDmon_var.PSD_p2[0:_PSDmon_var.nx][0:_PSDmon_var.ny]) */
-  /* #pragma omp target data map(tofrom:_instrument_var) */
-  /*   { */
     #pragma omp target teams num_teams(64) thread_limit(16)
     #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
