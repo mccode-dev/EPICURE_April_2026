@@ -2,7 +2,7 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: templateNMX.instr (templateNMX)
- * Date:       Mon Jun 15 10:59:01 2026
+ * Date:       Mon Jun 15 11:25:13 2026
  * File:       ./templateNMX.c
  * CFLAGS=
  */
@@ -6955,7 +6955,7 @@ int traceenabled = 1;
 #else
 int traceenabled = 0;
 #endif
-#define MCSTAS "/home/willend/micromamba/envs/mcstas-dev/share/mcstas/resources/"
+#define MCSTAS "/Users/peterwillendrup/micromamba/envs/mcstas-dev/share/mcstas/resources/"
 int   defaultmain         = 1;
 char  instrument_name[]   = "templateNMX";
 char  instrument_source[] = "templateNMX.instr";
@@ -11358,9 +11358,10 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   double t1, t2 = 0;  /* Entry and exit times in sample */
   struct hkl_data* L; /* Structure factor list */
   int i;              /* Index into structure factor list */
-                      #if !defined(OPENACC) && !defined(_OPENMP)
+
+  #if !defined(OPENACC) && !defined(_OPENMP)
   struct tau_data* T; /* List of reflections close to Ewald sphere */
-                      #else
+  #else
   struct tau_data T[MCSX_REFL_SLIST_SIZE];
   #endif
   int tau_count;              /* Number of reflections close to Ewald sphere*/
