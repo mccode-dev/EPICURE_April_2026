@@ -7109,59 +7109,59 @@ struct _struct_Monitor_4PI {
 typedef struct _struct_Monitor_4PI _class_Monitor_4PI;
 _class_Monitor_4PI _mon_var;
 
-#pragma omp declare mapper(struct _struct_Monitor_4PI v)  \
-  map(v._name[0:256])                                     \
-  map(v._type[0:256])                                     \
-  map(v._index)                                           \
-  map(v._position_absolute.x)                             \
-  map(v._position_absolute.y)                             \
-  map(v._position_absolute.z)                             \
-  map(v._position_relative.x)                             \
-  map(v._position_relative.y)                             \
-  map(v._position_relative.z)                             \
-  map(v._rotation_absolute[0:3][0:3])                     \
-  map(v._rotation_relative[0:3][0:3])                     \
-  map(v._rotation_is_identity)                            \
-  map(v._position_relative_is_zero)                       \
-  map(v.Nsum)                       \
-  map(v.psum)                       \
-  map(v.p2sum)
+/* #pragma omp declare mapper(struct _struct_Monitor_4PI v)  \ */
+/*   map(v._name[0:256])                                     \ */
+/*   map(v._type[0:256])                                     \ */
+/*   map(v._index)                                           \ */
+/*   map(v._position_absolute.x)                             \ */
+/*   map(v._position_absolute.y)                             \ */
+/*   map(v._position_absolute.z)                             \ */
+/*   map(v._position_relative.x)                             \ */
+/*   map(v._position_relative.y)                             \ */
+/*   map(v._position_relative.z)                             \ */
+/*   map(v._rotation_absolute[0:3][0:3])                     \ */
+/*   map(v._rotation_relative[0:3][0:3])                     \ */
+/*   map(v._rotation_is_identity)                            \ */
+/*   map(v._position_relative_is_zero)                       \ */
+/*   map(v.Nsum)                       \ */
+/*   map(v.psum)                       \ */
+/*   map(v.p2sum) */
 
-#pragma omp declare mapper(struct _struct_Source_Maxwell_3 v) \
-  map(v._name[0:256])                                         \
-  map(v._type[0:256])                                         \
-  map(v._index)                                               \
-  map(v._position_absolute.x)                                 \
-  map(v._position_absolute.y)                                 \
-  map(v._position_absolute.z)                                 \
-  map(v._position_relative.x)                                 \
-  map(v._position_relative.y)                                 \
-  map(v._position_relative.z)                                 \
-  map(v._rotation_absolute[0:3][0:3])                         \
-  map(v._rotation_relative[0:3][0:3])                         \
-  map(v._rotation_is_identity)                                \
-  map(v._position_relative_is_zero)                           \
-  map(v.size)                                                 \
-  map(v.yheight)                                              \
-  map(v.xwidth)                                               \
-  map(v.Lmin)                                                 \
-  map(v.Lmax)                                                 \
-  map(v.dist)                                                 \
-  map(v.focus_xw)                                             \
-  map(v.focus_yh)                                             \
-  map(v.T1)                                                   \
-  map(v.T2)                                                   \
-  map(v.T3)                                                   \
-  map(v.I1)                                                   \
-  map(v.I2)                                                   \
-  map(v.I3)                                                   \
-  map(v.target_index)                                         \
-  map(v.lambda0)                                              \
-  map(v.dlambda)                                              \
-  map(v.l_range)                                              \
-  map(v.w_mult)                                               \
-  map(v.w_source)                                             \
-  map(v.h_source)
+/* #pragma omp declare mapper(struct _struct_Source_Maxwell_3 v) \ */
+/*   map(v._name[0:256])                                         \ */
+/*   map(v._type[0:256])                                         \ */
+/*   map(v._index)                                               \ */
+/*   map(v._position_absolute.x)                                 \ */
+/*   map(v._position_absolute.y)                                 \ */
+/*   map(v._position_absolute.z)                                 \ */
+/*   map(v._position_relative.x)                                 \ */
+/*   map(v._position_relative.y)                                 \ */
+/*   map(v._position_relative.z)                                 \ */
+/*   map(v._rotation_absolute[0:3][0:3])                         \ */
+/*   map(v._rotation_relative[0:3][0:3])                         \ */
+/*   map(v._rotation_is_identity)                                \ */
+/*   map(v._position_relative_is_zero)                           \ */
+/*   map(v.size)                                                 \ */
+/*   map(v.yheight)                                              \ */
+/*   map(v.xwidth)                                               \ */
+/*   map(v.Lmin)                                                 \ */
+/*   map(v.Lmax)                                                 \ */
+/*   map(v.dist)                                                 \ */
+/*   map(v.focus_xw)                                             \ */
+/*   map(v.focus_yh)                                             \ */
+/*   map(v.T1)                                                   \ */
+/*   map(v.T2)                                                   \ */
+/*   map(v.T3)                                                   \ */
+/*   map(v.I1)                                                   \ */
+/*   map(v.I2)                                                   \ */
+/*   map(v.I3)                                                   \ */
+/*   map(v.target_index)                                         \ */
+/*   map(v.lambda0)                                              \ */
+/*   map(v.dlambda)                                              \ */
+/*   map(v.l_range)                                              \ */
+/*   map(v.w_mult)                                               \ */
+/*   map(v.w_source)                                             \ */
+/*   map(v.h_source) */
 
 
 int mcNUMCOMP = 3;
@@ -7929,12 +7929,6 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
   _class_particle* pbuffer = malloc(gpu_innerloop*sizeof(_class_particle));
   double* weights = malloc(gpu_innerloop*sizeof(double));
   long livebatchsize = gpu_innerloop;
-  struct john {
-    double lmin;
-  };
-  printf("Lmin = %f\n", _source_var.Lmin);
-  struct john jj;
-  jj.lmin = _source_var.Lmin;
   
   #undef ABSORB0
   #undef ABSORB
@@ -7945,7 +7939,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     
     // init particles
-    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var, jj)
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _mon_var, _source_var, _source_arm_var)
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();

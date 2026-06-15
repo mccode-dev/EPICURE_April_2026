@@ -2,13 +2,13 @@
  * Format:     ANSI C source code
  * Creator:    McStas <http://www.mcstas.org>
  * Instrument: Minimal.instr (PSI_source)
- * Date:       Tue May 26 14:10:27 2026
+ * Date:       Wed May 27 11:55:18 2026
  * File:       Minimal.c
  * CFLAGS=
  */
 
 #ifndef WIN32
-#  ifndef _OPENMP
+#  ifndef OPENACC
 #    define _GNU_SOURCE
 #  endif
 #  define _POSIX_C_SOURCE 200809L
@@ -81,20 +81,18 @@ struct _struct_particle {
 };
 typedef struct _struct_particle _class_particle;
 
+
 _class_particle _particle_global_randnbuse_var;
 _class_particle* _particle = &_particle_global_randnbuse_var;
 
-
 _class_particle mcgenstate(void);
-
 _class_particle mcsetstate(double x, double y, double z, double vx, double vy, double vz,
 			   double t, double sx, double sy, double sz, double p, int mcgravitation, void *mcMagnet, int mcallowbackprop);
-
 _class_particle mcgetstate(_class_particle mcneutron, double *x, double *y, double *z,
                            double *vx, double *vy, double *vz, double *t,
                            double *sx, double *sy, double *sz, double *p);
 
-#pragma omp begin declare target
+#pragma omp declare target
 extern int mcgravitation;      /* flag to enable gravitation */
 #pragma omp end declare target
 
@@ -104,16 +102,14 @@ _class_particle mcgenstate(void) {
 }
 /*Generated user variable handlers:*/
 
-
 double particle_getvar(_class_particle *p, char *name, int *suc);
 
-#ifdef _OPENMP
-
+#ifdef OPENACC
 int str_comp(char *str1, char *str2);
 #endif
 
 double particle_getvar(_class_particle *p, char *name, int *suc){
-#ifndef _OPENMP
+#ifndef OPENACC
 #define str_comp strcmp
 #endif
   int s=1;
@@ -136,16 +132,14 @@ double particle_getvar(_class_particle *p, char *name, int *suc){
   return rval;
 }
 
-
 void* particle_getvar_void(_class_particle *p, char *name, int *suc);
 
-#ifdef _OPENMP
-
+#ifdef OPENACC
 int str_comp(char *str1, char *str2);
 #endif
 
 void* particle_getvar_void(_class_particle *p, char *name, int *suc){
-#ifndef _OPENMP
+#ifndef OPENACC
 #define str_comp strcmp
 #endif
   int s=1;
@@ -165,11 +159,10 @@ void* particle_getvar_void(_class_particle *p, char *name, int *suc){
   return rval;
 }
 
-
 int particle_setvar_void(_class_particle *, char *, void*);
 
 int particle_setvar_void(_class_particle *p, char *name, void* value){
-#ifndef _OPENMP
+#ifndef OPENACC
 #define str_comp strcmp
 #endif
   int rval=1;
@@ -187,17 +180,15 @@ int particle_setvar_void(_class_particle *p, char *name, void* value){
   return rval;
 }
 
-
 int particle_setvar_void_array(_class_particle *, char *, void*, int);
 
 int particle_setvar_void_array(_class_particle *p, char *name, void* value, int elements){
-#ifndef _OPENMP
+#ifndef OPENACC
 #define str_comp strcmp
 #endif
   int rval=1;
   return rval;
 }
-
 
 void particle_restore(_class_particle *p, _class_particle *p0);
 
@@ -209,7 +200,6 @@ void particle_restore(_class_particle *p, _class_particle *p0) {
   p->_absorbed=0; p->_restore=0;
 }
 
-
 double particle_getuservar_byid(_class_particle *p, int id, int *suc){
   int s=1;
   double rval=0;
@@ -218,7 +208,6 @@ double particle_getuservar_byid(_class_particle *p, int id, int *suc){
   if (suc!=0x0) {*suc=s;}
   return rval;
 }
-
 
 void particle_uservar_init(_class_particle *p){
 }
@@ -279,16 +268,16 @@ void particle_uservar_init(_class_particle *p){
 #include <float.h>
 #include <inttypes.h>
 #include <stdint.h>
-#ifdef _OPENMP
-#include <omp.h>
+#ifdef OPENACC
+#include <openacc.h>
 #ifndef GCCOFFLOAD
-#include <math.h>
+#include <accelmath.h>
 #else
 #include <math.h>
 #endif
-
+#pragma acc routine
 int noprintf();
-
+#pragma acc routine
 size_t str_len(const char *s);
 #else
 #include <math.h>
@@ -481,21 +470,21 @@ clock_t times (struct tms *__buffer) {
 #  endif
 #endif
 
-#ifdef _OPENMP  /* default is to disable signals with PGI/OpenACC */
+#ifdef OPENACC  /* default is to disable signals with PGI/OpenACC */
 #  ifndef NOSIGNALS
 #    define NOSIGNALS 1
 #  endif
 #endif
 
-#ifndef _OPENMP
+#ifndef OPENACC
 #  ifndef USE_OFF  /* default is to enable OFF when not using PGI/OpenACC */
 #    define USE_OFF
 #  endif
-#  ifndef CPUFUNNEL  /* allow to enable FUNNEL-mode on CPU */
-#  ifdef FUNNEL      /* by default disable FUNNEL-mode when not using PGI/OpenACC */
-#    undef FUNNEL
-#  endif
-#  endif
+#  //ifndef CPUFUNNEL  /* allow to enable FUNNEL-mode on CPU */
+#  //ifdef FUNNEL      /* by default disable FUNNEL-mode when not using PGI/OpenACC */
+#  //  undef FUNNEL
+#  //endif
+#  //endif
 #endif
 
 #if (NOSIGNALS == 0)
@@ -596,7 +585,7 @@ void destroy_darr3d(DArray3d a);
 #include "mpi.h"
 
 #ifdef OMPI_MPI_H  /* openmpi does not use signals: we may install our sighandler */
-#ifndef _OPENMP    /* ... but only if we are not also running on GPU */
+#ifndef OPENACC    /* ... but only if we are not also running on GPU */
 #undef NOSIGNALS
 #endif
 #endif
@@ -639,7 +628,7 @@ static int mpi_node_count;
 
 
 void   mcset_ncount(unsigned long long count);    /* wrapper to get mcncount */
-
+#pragma acc routine
 unsigned long long int mcget_ncount(void);            /* wrapper to set mcncount */
 unsigned long long mcget_run_num(void);           /* wrapper to get mcrun_num=0:mcncount-1 */
 
@@ -860,7 +849,7 @@ void mcdis_sphere(double x, double y, double z, double r);
 #  define _random() kiss_random(state)
 #endif
 
-
+#pragma acc routine
 double _randnorm2(randstate_t* state);
 
 // Component writer interface
@@ -877,28 +866,28 @@ void mt_srandom (uint32_t x);
 void mt_srandom_empty();
 
 // KISS rng
-
+#pragma acc routine
 uint64_t *kiss_srandom(uint64_t state[7], uint64_t seed);
-
+#pragma acc routine
 uint64_t kiss_random(uint64_t state[7]);
 
 // Scrambler / hash function
-
+#pragma acc routine seq
 randstate_t _hash(randstate_t x);
 
 // internal RNG (transforms) interface
-
+#pragma acc routine
 double _rand01(randstate_t* state);
-
+#pragma acc routine
 double _randpm1(randstate_t* state);
-
+#pragma acc routine
 double _rand0max(double max, randstate_t* state);
-
+#pragma acc routine
 double _randminmax(double min, double max, randstate_t* state);
-
+#pragma acc routine
 double _randtriangle(randstate_t* state);
 // version which pass randstate_t* as opague void*
-
+#pragma acc routine
 double _rand01_opague(void* state);
 
 
@@ -909,7 +898,7 @@ double _rand01_opague(void* state);
 
 #ifndef DANSE
 int init(void);
-int raytrace(_class_particle*);
+int raytrace(_class_particle*, double*, double*, double*);
 int save(FILE *);
 int finally(void);
 int display(void);
@@ -932,19 +921,19 @@ long sort_absorb_last_serial(_class_particle* particles, long len);
 
 #define vec_prod(x, y, z, x1, y1, z1, x2, y2, z2) \
 	vec_prod_func(&x, &y, &z, x1, y1, z1, x2, y2, z2)
-
+#pragma acc routine seq
 mcstatic void vec_prod_func(double *x, double *y, double *z,
 		double x1, double y1, double z1, double x2, double y2, double z2);
 
-
+#pragma acc routine seq
 mcstatic double scalar_prod(
 		double x1, double y1, double z1, double x2, double y2, double z2);
 
-
+#pragma acc routine seq
 mcstatic void norm_func(double *x, double *y, double *z);
 #define NORM(x,y,z)	norm_func(&x, &y, &z)
 
-
+#pragma acc routine seq
 void normal_vec(double *nx, double *ny, double *nz,
     double x, double y, double z);
 
@@ -994,45 +983,45 @@ void normal_vec(double *nx, double *ny, double *nz,
     (z) = rz -2 * mcrt_tmpt*mcrt_rmpz; \
   } while (0)
 
-
+#pragma acc routine
 Coords coords_set(MCNUM x, MCNUM y, MCNUM z);
-
+#pragma acc routine
 Coords coords_get(Coords a, MCNUM *x, MCNUM *y, MCNUM *z);
-
+#pragma acc routine
 Coords coords_add(Coords a, Coords b);
-
+#pragma acc routine
 Coords coords_sub(Coords a, Coords b);
-
+#pragma acc routine
 Coords coords_neg(Coords a);
-
+#pragma acc routine
 Coords coords_scale(Coords b, double scale);
-
+#pragma acc routine
 double coords_sp(Coords a, Coords b);
-
+#pragma acc routine
 Coords coords_xp(Coords b, Coords c);
-
+#pragma acc routine
 double coords_len(Coords a);
-
+#pragma acc routine seq
 void   coords_print(Coords a);
-
+#pragma acc routine seq
 mcstatic void coords_norm(Coords* c);
 
-
+#pragma acc routine seq
 void rot_set_rotation(Rotation t, double phx, double phy, double phz);
-
+#pragma acc routine seq
 int  rot_test_identity(Rotation t);
-
+#pragma acc routine seq
 void rot_mul(Rotation t1, Rotation t2, Rotation t3);
-
+#pragma acc routine seq
 void rot_copy(Rotation dest, Rotation src);
-
+#pragma acc routine seq
 void rot_transpose(Rotation src, Rotation dst);
-
+#pragma acc routine seq
 Coords rot_apply(Rotation t, Coords a);
 
-
+#pragma acc routine seq
 void mccoordschange(Coords a, Rotation t, _class_particle *particle);
-
+#pragma acc routine seq
 void mccoordschange_polarisation(Rotation t, double *sx, double *sy, double *sz);
 
 double mcestimate_error(double N, double p1, double p2);
@@ -1044,19 +1033,19 @@ is no longer equal */
 _class_particle mcgenstate(void);
 
 // trajectory/shape intersection routines
-
+#pragma acc routine seq
 int inside_rectangle(double, double, double, double);
-
+#pragma acc routine seq
 int box_intersect(double *dt_in, double *dt_out, double x, double y, double z,
       double vx, double vy, double vz, double dx, double dy, double dz);
-
+#pragma acc routine seq
 int cylinder_intersect(double *t0, double *t1, double x, double y, double z,
       double vx, double vy, double vz, double r, double h);
-
+#pragma acc routine seq
 int sphere_intersect(double *t0, double *t1, double x, double y, double z,
       double vx, double vy, double vz, double r);
 // second order equation roots
-
+#pragma acc routine seq
 int solve_2nd_order(double *t1, double *t2,
       double A,  double B,  double C);
 
@@ -1073,16 +1062,16 @@ int solve_2nd_order(double *t1, double *t2,
 #define randvec_target_rect(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) \
   randvec_target_rect_real(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,0,0,0,1)
 // headers for randvec
-
+#pragma acc routine seq
 void _randvec_target_circle(double *xo, double *yo, double *zo,
   double *solid_angle, double xi, double yi, double zi, double radius,
   _class_particle* _particle);
-
+#pragma acc routine seq
 void _randvec_target_rect_angular(double *xo, double *yo, double *zo,
   double *solid_angle, double xi, double yi, double zi, double height,
   double width, Rotation A,
   _class_particle* _particle);
-
+#pragma acc routine seq
 void _randvec_target_rect_real(double *xo, double *yo, double *zo, double *solid_angle,
   double xi, double yi, double zi, double height, double width, Rotation A,
   double lx, double ly, double lz, int order,
@@ -1503,15 +1492,21 @@ int defaultmain  = 0;
 #endif
 /* else defined directly in the McCode generated C code */
 
-#pragma omp begin declare target
+#pragma omp declare target
 static   long mcseed                 = 0; /* seed for random generator */
-mcstatic int  mcdotrace              = 0; /* flag for --trace and messages for DISPLAY */
 #pragma omp end declare target
+
 static   long mcstartdate            = 0; /* start simulation time */
 static   int  mcdisable_output_files = 0; /* --no-output-files */
+
+#pragma omp declare target
 mcstatic int  mcgravitation          = 0; /* use gravitation flag, for PROP macros */
+#pragma omp end declare target
 mcstatic int  mcusedefaults          = 0; /* assume default value for all parameters */
 mcstatic int  mcappend               = 0; /* flag to allow append mode on datasets/directories */
+#pragma omp declare target
+mcstatic int  mcdotrace              = 0; /* flag for --trace and messages for DISPLAY */
+#pragma omp end declare target
 mcstatic int  mcnexus_embed_idf      = 0; /* flag to embed xml-formatted IDF file for Mantid */
 int      mcallowbackprop             = 0;         /* flag to enable negative/backprop */
 
@@ -1530,11 +1525,12 @@ MONND_BUFSIZ = ND_BUFFER;
  
 
 /* Number of particle histories to simulate. */
+
 #ifdef NEUTRONICS
 mcstatic unsigned long long int mcncount             = 1;
 mcstatic unsigned long long int mcrun_num            = 0;
 #else
-#pragma omp begin declare target
+#pragma omp declare target
 #ifdef MCDEFAULT_NCOUNT
 mcstatic unsigned long long int mcncount             = MCDEFAULT_NCOUNT;
 #else
@@ -1553,7 +1549,7 @@ mcstatic unsigned long long int mcrun_num            = 0;
 #endif
 
 /* String nullification on GPU and other replacements */
-#ifdef _OPENMP
+#ifdef OPENACC
 int noprintf() {
   return 0;
 }
@@ -4799,7 +4795,7 @@ Coords coords_mirror(Coords a, Coords n) {
 
 /* coords_print: Print out vector values. */
 void coords_print(Coords a) {
-  #ifndef _OPENMP
+  #ifndef OPENACC
   fprintf(stdout, "(%f, %f, %f)\n", a.x, a.y, a.z);
   #endif
   return;
@@ -5978,7 +5974,7 @@ mchelp(char *pgmname)
 "  --meta-type COMP:NAME      Print metadata format type specified in definition\n"
 "  --meta-data COMP:NAME      Print the metadata text\n"
 "  --source                   Show the instrument code which was compiled.\n"
-#ifdef _OPENMP
+#ifdef OPENACC
 "\n"
 "  --vecsize                  OpenACC vector-size (default: 128)\n"
 "  --numgangs                 Number of OpenACC gangs (default: 7813)\n"
@@ -6002,7 +5998,7 @@ mchelp(char *pgmname)
   fprintf(stderr,
   "This instrument has been compiled with MPI support.\n  Use 'mpirun %s [options] [parm=value ...]'.\n", pgmname);
 #endif
-#ifdef _OPENMP
+#ifdef OPENACC
   fprintf(stderr,
   "This instrument has been compiled with NVIDIA GPU support through OpenACC.\n  Running on systems without such devices will lead to segfaults.\nFurter, fprintf, sprintf and printf have been removed from any component TRACE.\n");
 #endif
@@ -6688,7 +6684,7 @@ _class_particle mcgetstate(_class_particle mcneutron, double *x, double *y, doub
 * mcgenstate: set default neutron parameters
 *******************************************************************************/
 // Moved to generated code
-/*  */
+/* #pragma acc routine seq */
 /* _class_particle mcgenstate(void) */
 /* { */
 /*   return(mcsetstate(0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, mcgravitation, mcMagnet, mcallowbackprop)); */
@@ -6939,7 +6935,8 @@ int plane_intersect(double *t, double x, double y, double z,
                  double vx, double vy, double vz, double nx, double ny, double nz, double wx, double wy, double wz)
 {
   double s;
-  if (fabs(s=scalar_prod(nx,ny,nz,vx,vy,vz))<FLT_EPSILON) return 0;
+  s=scalar_prod(nx,ny,nz,vx,vy,vz);
+  if (fabs(s)<FLT_EPSILON) return 0;
   *t = - scalar_prod(nx,ny,nz,x-wx,y-wy,z-wz)/s;
   if (*t<0) return -1;
   else return 1;
@@ -6974,7 +6971,6 @@ int main(int argc, char *argv[]){return mccode_main(argc, argv);}
 /* Instrument parameters: structure and a table for the initialisation
    (Used in e.g. inputparse and I/O function (e.g. detector_out) */
 
-#pragma omp begin declare target
 struct _instrument_struct {
   char   _name[256]; /* the name of this instrument e.g. 'PSI_source' */
 /* Counters per component instance */
@@ -6996,7 +6992,6 @@ struct _instrument_struct {
   MCNUM BARNS;
 } _instrument_var;
 struct _instrument_struct *instrument = & _instrument_var;
-#pragma omp end declare target
 
 int numipar = 9;
 struct mcinputtable_struct mcinputtable[] = {
@@ -7023,7 +7018,7 @@ int num_metadata = 0;
 
 /* Shared user declarations for all components types 'Source_Maxwell_3'. */
 /* A normalised Maxwellian distribution : Integral over all l = 1 */
-
+#pragma acc routine seq
 double SM3_Maxwell(double l, double temp)
   {
     double a=949.0/temp;
@@ -7039,7 +7034,7 @@ double SM3_Maxwell(double l, double temp)
 
 /* ********************** component definition declarations. **************** */
 
-#pragma omp begin declare target
+
 /* Parameters for component type 'Arm' */
 struct _struct_Arm {
   char     _name[256]; /* e.g. source_arm */
@@ -7054,7 +7049,6 @@ struct _struct_Arm {
   char Arm_has_no_parameters;
 };
 typedef struct _struct_Arm _class_Arm;
-_class_Arm _source_arm_var;
 
 /* Parameters for component type 'Source_Maxwell_3' */
 struct _struct_Source_Maxwell_3 {
@@ -7092,7 +7086,6 @@ struct _struct_Source_Maxwell_3 {
   double  h_source;
 };
 typedef struct _struct_Source_Maxwell_3 _class_Source_Maxwell_3;
-_class_Source_Maxwell_3 _source_var;
 
 /* Parameters for component type 'PSD_monitor' */
 struct _struct_PSD_monitor {
@@ -7123,9 +7116,20 @@ struct _struct_PSD_monitor {
   DArray2d  PSD_p2;
 };
 typedef struct _struct_PSD_monitor _class_PSD_monitor;
+
+_class_Arm _source_arm_var;
+_class_Source_Maxwell_3 _source_var;
 _class_PSD_monitor _PSDbefore_guides_var;
 
-#pragma omp end declare target
+#pragma omp declare mapper(_class_PSD_monitor v)                \
+    map(v)                                                      \
+    map(v.PSD_N[0:v.nx])                                        \
+    map(v.PSD_N[0][0:v.nx * v.ny])                              \
+    map(v.PSD_p[0:v.nx])                                        \
+    map(v.PSD_p[0][0:v.nx * v.ny])                              \
+    map(v.PSD_p2[0:v.nx])                                       \
+    map(v.PSD_p2[0][0:v.nx * v.ny])
+
 
 int mcNUMCOMP = 3;
 
@@ -7595,14 +7599,6 @@ int init(void) { /* called by mccode_main for PSI_source:INITIALISE */
   if (mcdotrace) display();
   DEBUG_INSTR_END();
 
-#ifdef _OPENMP
-#include <omp.h>
-#pragma acc update device(_source_arm_var)
-#pragma acc update device(_source_var)
-#pragma acc update device(_PSDbefore_guides_var)
-#pragma acc update device(_instrument_var)
-#endif
-
   return(0);
 } /* init */
 
@@ -7630,7 +7626,7 @@ int init(void) { /* called by mccode_main for PSI_source:INITIALISE */
 /* if on GPU, globally nullify sprintf,fprintf,printfs   */
 /* (Similar defines are available in each comp trace but */
 /*  those are not enough to handle external libs etc. )  */
-#ifdef _OPENMP
+#ifdef OPENACC
 #define fprintf(stderr,...) printf(__VA_ARGS__)
 #define sprintf(string,...) printf(__VA_ARGS__)
 #define exit(...) noprintf()
@@ -7644,7 +7640,6 @@ int init(void) { /* called by mccode_main for PSI_source:INITIALISE */
 #define ABSORBED (_particle->_absorbed)
 #define mcget_run_num() _particle->_uid
 #define ABSORB ABSORB0
-
 void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
   , _class_particle *_particle) {
   ABSORBED=SCATTERED=RESTORE=0;
@@ -7701,20 +7696,20 @@ void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
   p *= w_mult*w_focus;                /* Correct for target focusing etc */
   p *= I1*SM3_Maxwell(lambda,T1)+I2*SM3_Maxwell(lambda,T2)+I3*SM3_Maxwell(lambda,T3);
                                         /* Calculate true intensity */
-#ifndef NOABSORB_INF_NAN
-  /* Check for nan or inf particle parms */ 
-  if(isnan(p + t + vx + vy + vz + x + y + z)) ABSORB;
-  if(isinf(fabs(p) + fabs(t) + fabs(vx) + fabs(vy) + fabs(vz) + fabs(x) + fabs(y) + fabs(z))) ABSORB;
-#else
-  if(isnan(p)  ||  isinf(p)) printf("NAN or INF found in p,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(t)  ||  isinf(t)) printf("NAN or INF found in t,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vx) || isinf(vx)) printf("NAN or INF found in vx, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vy) || isinf(vy)) printf("NAN or INF found in vy, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(vz) || isinf(vz)) printf("NAN or INF found in vz, %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(x)  ||  isinf(x)) printf("NAN or INF found in x,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(y)  ||  isinf(y)) printf("NAN or INF found in y,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-  if(isnan(z)  ||  isinf(z)) printf("NAN or INF found in z,  %s (particle %lld)\n",_comp->_name,_particle->_uid);
-#endif
+/* #ifndef NOABSORB_INF_NAN */
+/*   /\* Check for nan or inf particle parms *\/  */
+/*   if(isnan(p + t + vx + vy + vz + x + y + z)) ABSORB; */
+/*   if(isinf(fabs(p) + fabs(t) + fabs(vx) + fabs(vy) + fabs(vz) + fabs(x) + fabs(y) + fabs(z))) ABSORB; */
+/* #else */
+/*   if(isnan(p)  ||  isinf(p)) printf("NAN or INF found in p,  %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(t)  ||  isinf(t)) printf("NAN or INF found in t,  %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(vx) || isinf(vx)) printf("NAN or INF found in vx, %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(vy) || isinf(vy)) printf("NAN or INF found in vy, %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(vz) || isinf(vz)) printf("NAN or INF found in vz, %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(x)  ||  isinf(x)) printf("NAN or INF found in x,  %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(y)  ||  isinf(y)) printf("NAN or INF found in y,  %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/*   if(isnan(z)  ||  isinf(z)) printf("NAN or INF found in z,  %s (particle %lld)\n",_comp->_name,_particle->_uid); */
+/* #endif */
   #undef size
   #undef yheight
   #undef xwidth
@@ -7738,10 +7733,9 @@ void class_Source_Maxwell_3_trace(_class_Source_Maxwell_3 *_comp
   #undef h_source
   return;
 } /* class_Source_Maxwell_3_trace */
-
-
+#pragma omp begin declare target
 void class_PSD_monitor_trace(_class_PSD_monitor *_comp
-  , _class_particle *_particle) {
+			     , _class_particle *_particle) {
   ABSORBED=SCATTERED=RESTORE=0;
   #define nx (_comp->nx)
   #define ny (_comp->ny)
@@ -7759,20 +7753,21 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
   #define PSD_p2 (_comp->PSD_p2)
   SIG_MESSAGE("[_PSDbefore_guides_trace] component PSDbefore_guides=PSD_monitor() TRACE [PSD_monitor:0]");
 
-  PROP_Z0;
-  if (x > xmin && x < xmax && y > ymin && y < ymax) {
+  // PROP_Z0;
+  if (1) { //x > xmin && x < xmax && y > ymin && y < ymax
     int i = floor ((x - xmin) * nx / (xmax - xmin));
     int j = floor ((y - ymin) * ny / (ymax - ymin));
-
+    const int idx = i * ny + j;
+    
     double p2 = p * p;
-    #pragma acc atomic
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    #pragma omp atomic update
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
-    #pragma acc atomic
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    #pragma omp atomic update
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
-    #pragma acc atomic
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
+    #pragma omp atomic update
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
 
     SCATTER;
   }
@@ -7809,14 +7804,13 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
   #undef PSD_p2
   return;
 } /* class_PSD_monitor_trace */
-
+#pragma omp end declare target
 /* *****************************************************************************
 * instrument 'PSI_source' TRACE
 ***************************************************************************** */
 
 #ifndef FUNNEL
-
-int raytrace(_class_particle* _particle) { /* single event propagation, called by mccode_main for PSI_source:TRACE */
+int raytrace(_class_particle* _particle, double* PSD_N, double* PSD_p, double* PSD_p2) { /* single event propagation, called by mccode_main for PSI_source:TRACE */
 
   /* init variables and counters for TRACE */
   #undef ABSORB0
@@ -7871,7 +7865,7 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
       _particle_save = *_particle;
       DEBUG_COMP(_PSDbefore_guides_var._name);
       DEBUG_STATE();
-      class_PSD_monitor_trace(&_PSDbefore_guides_var, _particle);
+      class_PSD_monitor_trace(&_PSDbefore_guides_var, _particle, PSD_N, PSD_p, PSD_p2);
       if (_particle->_restore)
         particle_restore(_particle, &_particle_save);
       _particle->_index++;
@@ -7892,7 +7886,7 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
 void raytrace_all(unsigned long long ncount, unsigned long seed) {
 
   // if on GPU and mcdotrace just exit
-  #ifdef _OPENMP
+  #ifdef OPENACC
   if (!mcdotrace) {
   #endif
 
@@ -7900,7 +7894,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   unsigned long long loops;
   loops = ceil((double)ncount/gpu_innerloop);
   /* if on GPU, printf has been globally nullified, re-enable here */
-  #ifdef _OPENMP
+  #ifdef OPENACC
   #undef strlen
   #undef strcmp
   #undef exit
@@ -7921,14 +7915,20 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   }
     #endif
 
+  double *PSD_N  = _PSDbefore_guides_var.PSD_N [0];
+  double *PSD_p  = _PSDbefore_guides_var.PSD_p [0];
+  double *PSD_p2 = _PSDbefore_guides_var.PSD_p2[0];
+  int nx = _PSDbefore_guides_var.nx;
+  int ny = _PSDbefore_guides_var.ny;
+    
   for (unsigned long long cloop=0; cloop<loops; cloop++) {
-    #ifdef _OPENMP
+    #ifdef OPENACC
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-
-    // Suppresed dim handles #pragma acc parallel loop num_gangs(numgangs) vector_length(vecsize)
-    #pragma acc parallel loop
+#pragma omp target data map(to:_instrument_var) map(tofrom: _PSDbefore_guides_var, _source_var, _source_arm_var, PSD_N[0:nx*ny], PSD_p[0:nx*ny], PSD_p2[0:nx*ny])
+    {
+    #pragma omp target teams loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -7939,8 +7939,9 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 
       srandom(_hash((pidx+1)*(seed+1)));
 
-      raytrace(_particle);
+      raytrace(_particle, PSD_N, PSD_p, PSD_p2);
     } /* inner for */
+    }
     seed = seed+gpu_innerloop;
   } /* CPU for */
   MPI_MASTER(
@@ -7948,7 +7949,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   );
 
   // if on GPU and mcdotrace just exit
-  #ifdef _OPENMP
+  #ifdef OPENACC
   }
   #endif
 
@@ -7963,14 +7964,14 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
   // if on GPU and mcdotrace just exit
-  #ifdef _OPENMP
+  #ifdef OPENACC
   if (!mcdotrace) {
   #endif
   // set up outer (CPU) loop / particle batches
   unsigned long long loops;
 
   /* if on GPU, printf has been globally nullified, re-enable here */
-   #ifdef _OPENMP
+   #ifdef OPENACC
    #undef strlen
    #undef strcmp
    #undef exit
@@ -7978,99 +7979,118 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    #undef sprintf
    #undef fprintf
    #endif
-  #ifdef _OPENMP
-  loops = ceil((double)ncount/gpu_innerloop);
-  if (ncount>gpu_innerloop) {
-    printf("Defining %llu CPU loops around kernel and adjusting ncount\n",loops);
-    mcset_ncount(loops*gpu_innerloop);
-  } else {
-  #endif
-    loops=1;
-    gpu_innerloop = ncount;
-  #ifdef _OPENMP
-  }
-  #endif
-
-  // create particles struct and pointer arrays (same memory used by all batches)
-  _class_particle* particles = malloc(gpu_innerloop*sizeof(_class_particle));
-  _class_particle* pbuffer = malloc(gpu_innerloop*sizeof(_class_particle));
-  long livebatchsize = gpu_innerloop;
-
-  #undef ABSORB0
-  #undef ABSORB
-  #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++; } while(0)
-  #define ABSORB ABSORB0
-  // outer loop / particle batches
-  for (unsigned long long cloop=0; cloop<loops; cloop++) {
-    if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
-
-    // init particles
-    #pragma acc parallel loop present(particles[0:livebatchsize])
-    for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
-      // generate particle state, set loop index and seed
-      particles[pidx] = mcgenstate();
-      _class_particle* _particle = particles + pidx;
-      _particle->_uid = pidx;
-      #ifdef USE_MPI
-      _particle->_uid += mpi_node_rank * ncount; 
-      #endif
-      srandom(_hash((pidx+1)*(seed+1))); // _particle->state usage built into srandom macro
+  //   #pragma omp target data map(to:_instrument_var) map(tofrom: _PSDbefore_guides_var, _source_var, _source_arm_var)
+   {
+    #ifdef _OPENMP
+    loops = ceil((double)ncount/gpu_innerloop);
+    if (ncount>gpu_innerloop) {
+      printf("Defining %llu CPU loops around kernel and adjusting ncount\n",loops);
+      mcset_ncount(loops*gpu_innerloop);
+    } else {
+    #endif
+      loops=1;
+      gpu_innerloop = ncount;
+    #ifdef _OPENMP
     }
+    #endif    
+    // create particles struct and pointer arrays (same memory used by all batches)
+    _class_particle* particles = malloc(gpu_innerloop*sizeof(_class_particle));
+    _class_particle* pbuffer = malloc(gpu_innerloop*sizeof(_class_particle));
+    long livebatchsize = gpu_innerloop;
+    
+    #undef ABSORB0
+    #undef ABSORB
+    #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++; } while(0)
+    #define ABSORB ABSORB0
+    // outer loop / particle batches
+    for (unsigned long long cloop=0; cloop<loops; cloop++) {
+      if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
-    // iterate components
-
-    #pragma acc parallel loop present(particles[0:livebatchsize])
-    for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
-      _class_particle* _particle = &particles[pidx];
-      _class_particle _particle_save;
-
-      // source_arm
-    if (!ABSORBED && _particle->_index == 1) {
-        _particle->_index++;
+      // init particles
+      #pragma omp target teams loop map(tofrom: particles[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _PSDbefore_guides_var, _source_var, _source_arm_var)
+      for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
+	// generate particle state, set loop index and seed
+	particles[pidx] = mcgenstate();
+	_class_particle* _particle = particles + pidx;
+	_particle->_uid = pidx;
+	
+	#ifdef USE_MPI
+	_particle->_uid += mpi_node_rank * ncount; 
+	#endif
+	srandom(_hash((pidx+1)*(seed+1))); // _particle->state usage built into srandom macro
       }
+      #pragma omp barrier
 
-      // source
-    if (!ABSORBED && _particle->_index == 2) {
-#ifndef MULTICORE
-        if (_source_var._rotation_is_identity)
-          coords_get(coords_add(coords_set(x,y,z), _source_var._position_relative),&x, &y, &z);
-        else
-#endif
-          mccoordschange(_source_var._position_relative, _source_var._rotation_relative, _particle);
-        _particle_save = *_particle;
-        class_Source_Maxwell_3_trace(&_source_var, _particle);
-        if (_particle->_restore)
-        particle_restore(_particle, &_particle_save);
-        _particle->_index++;
+      // iterate components
+      #pragma omp target teams loop map(tofrom: particles[0:livebatchsize]) map(to:_instrument_var) map(tofrom: _PSDbefore_guides_var, _source_var, _source_arm_var)
+      for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
+	_class_particle* _particle = &particles[pidx];
+	_class_particle _particle_save;
+
+	// source_arm
+      if (!ABSORBED && _particle->_index == 1) {
+	  _particle->_index++;
+	}
+
+	// source
+      if (!ABSORBED && _particle->_index == 2) {
+
+  /* #ifndef MULTICORE */
+  /* 	  if (_source_var._rotation_is_identity) */
+  /* 	    coords_get(coords_add(coords_set(x,y,z), _source_var._position_relative),&x, &y, &z); */
+  /* 	  else */
+  /* #endif */
+  /* 	    mccoordschange(_source_var._position_relative, _source_var._rotation_relative, _particle); */
+	//_particle_save = *_particle;
+	class_Source_Maxwell_3_trace(&_source_var, _particle);
+	  /* if (_particle->_restore) { */
+	  /*   particle_restore(_particle, &_particle_save); */
+	  // }
+
+	  _particle->_index++;
+	}
+
+	// PSDbefore_guides
+      if ( _particle->_index == 3) { // !ABSORBED &&
+	
+        /* #ifndef MULTICORE */
+	/* if (_PSDbefore_guides_var._rotation_is_identity) */
+	/*   coords_get(coords_add(coords_set(x,y,z), _PSDbefore_guides_var._position_relative),&x, &y, &z); */
+	/* else */
+        /* #endif */
+	/*   mccoordschange(_PSDbefore_guides_var._position_relative, _PSDbefore_guides_var._rotation_relative, _particle); */
+	/* _particle_save = *_particle; */
+
+	class_PSD_monitor_trace(&_PSDbefore_guides_var, _particle);
+	  if (_particle->_restore)
+	  particle_restore(_particle, &_particle_save);
+	  _particle->_index++;
+	}
+
       }
-
-      // PSDbefore_guides
-    if (!ABSORBED && _particle->_index == 3) {
-#ifndef MULTICORE
-        if (_PSDbefore_guides_var._rotation_is_identity)
-          coords_get(coords_add(coords_set(x,y,z), _PSDbefore_guides_var._position_relative),&x, &y, &z);
-        else
-#endif
-          mccoordschange(_PSDbefore_guides_var._position_relative, _PSDbefore_guides_var._rotation_relative, _particle);
-        _particle_save = *_particle;
-        class_PSD_monitor_trace(&_PSDbefore_guides_var, _particle);
-        if (_particle->_restore)
-        particle_restore(_particle, &_particle_save);
-        _particle->_index++;
-      }
-
+      
+      
+      printf("Source counter: %d, monitor counter: %d, absorbed: %d", source_counter, monitor_counter, absorb_counter);
+      // jump to next viable seed
+      seed = seed + gpu_innerloop;
+      /* for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) { */
+      /* 	_class_particle* _particle = &particles[pidx]; */
+	
+      /* } */
+      // printf("%f", N_flat[0]);
+      
+      free(particles);
+      free(pbuffer);
     }
+    
 
-    // jump to next viable seed
-    seed = seed + gpu_innerloop;
   } // outer loop / particle batches
 
-  free(particles);
-  free(pbuffer);
+
 
   printf("\n");
   // if on GPU and mcdotrace just exit
-  #ifdef _OPENMP
+  #ifdef OPENACC
   }
   #endif
 } /* raytrace_all_funnel */
@@ -8093,7 +8113,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 #undef _mctmp_a
 #undef _mctmp_b
 #undef _mctmp_c
-#ifdef _OPENMP
+#ifdef OPENACC
 #undef strlen
 #undef strcmp
 #undef exit
@@ -8211,10 +8231,6 @@ _class_PSD_monitor *class_PSD_monitor_finally(_class_PSD_monitor *_comp
 
 
 int finally(void) { /* called by mccode_main for PSI_source:FINALLY */
-#pragma acc update host(_source_arm_var)
-#pragma acc update host(_source_var)
-#pragma acc update host(_PSDbefore_guides_var)
-#pragma acc update host(_instrument_var)
 
   siminfo_init(NULL);
   save(siminfo_file); /* save data when simulation ends */
@@ -8392,7 +8408,7 @@ int display(void) { /* called by mccode_main for PSI_source:DISPLAY */
 void* _getvar_parameters(char* compname)
 /* enables settings parameters based use of the GETPAR macro */
 {
-  #ifdef _OPENMP
+  #ifdef OPENACC
     #define strcmp(a,b) str_comp(a,b)
   #endif
   if (!strcmp(compname, "source_arm")) return (void *) &(_source_arm_var);
@@ -8669,7 +8685,7 @@ int mccode_main(int argc, char *argv[])
   }
 #endif /* USE_MPI */
 
-#ifdef _OPENMP
+#ifdef OPENACC
 #ifdef USE_MPI
   int num_devices = acc_get_num_devices(acc_device_nvidia);
   if(num_devices>0){

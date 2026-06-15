@@ -8170,7 +8170,6 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
 #ifndef FUNNEL
 int raytrace(_class_particle* _particle) { /* single event propagation, called by mccode_main for PSI_source:TRACE */
   /* init variables and counters for TRACE */
-  //#pragma omp declare target link(_source_var, _mon_var, _Lmon_var, _PSDmon_var)
   #undef ABSORB0
   #undef ABSORB
   #define ABSORB0 do { DEBUG_ABSORB(); MAGNET_OFF; ABSORBED++;} while(0)

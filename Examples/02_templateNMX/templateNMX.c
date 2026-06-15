@@ -8683,6 +8683,9 @@ typedef struct polygon {
   double D;
 } polygon;
 
+#pragma omp declare mapper(polygon s) \
+  map(s, s.p, s.p[0:s.npol], s.npol, s.normal, s.D)
+
 typedef struct off_struct {
     long vtxSize;
     long polySize;
@@ -8702,6 +8705,13 @@ typedef struct off_struct {
     int nextintersect;                 // 'Next' intersection (first t>0) solution after call to off_intersect_all
     int numintersect;               // Number of intersections after call to off_intersect_all
 } off_struct;
+
+#pragma omp declare mapper( custom_map: off_struct s)	\
+  map(s, s.vtxArray[0:s.vtxSize], \
+      s.normalArray[0:s.faceSize], \
+      s.faceArray[0:s.faceSize*s.polySize], \
+      s.DArray[0:s.polySize], \
+      s.intersects[0:OFF_INTERSECT_MAX])
 
 /*******************************************************************************
 * long off_init(  char *offfile, double xwidth, double yheight, double zdepth, off_struct* data)
@@ -9666,11 +9676,11 @@ long off_init(  char *offfile, double xwidth, double yheight, double zdepth,
   data->polySize   = polySize;
   data->faceSize   = faceSize;
   data->filename   = offfile;
-  #if defined(OPENACC) || defined(_OPENMP)
-  acc_attach((void *)&vtxArray);
-  acc_attach((void *)&normalArray);
-  acc_attach((void *)&faceArray);
-  #endif
+  /* #if defined(OPENACC) || defined(_OPENMP) */
+  /* acc_attach((void *)&vtxArray); */
+  /* acc_attach((void *)&normalArray); */
+  /* acc_attach((void *)&faceArray); */
+  /* #endif */
 
   return(polySize);
 } /* off_init */
@@ -10658,6 +10668,18 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double cutoff;              /* Cutoff value for Gaussian tails */
   };
 
+/* #pragma omp declare mapper(hkl_data : struct hkl_data v) \ */
+/*   map(v,						 \ */
+/*       v.h, v.k, v.l,					 \ */
+/*       v.F2,						 \ */
+/*       v.tau_x, v.tau_y, v.tau_z, v.tau,			 \ */
+/*       v.u1x, v.u1y, v.u1z,				 \ */
+/*       v.u2x, v.u2y, v.u2z,				 \ */
+/*       v.u3x, v.u3y, v.u3z,				 \ */
+/*       v.sig123,						 \ */
+/*       v.m1, v.m2, v.m3,					 \ */
+/*       v.cutoff) */
+
   struct tau_data {
     int index; /* Index into reflection table */
     double refl;
@@ -10671,6 +10693,17 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
     double y0x, y0y;      /* 2D Gauss center in tangent plane */
   };
+
+/* #pragma omp declare mapper(tau_data : struct tau_data v) \ */
+/*   map(v,						 \ */
+/*       v.index,						 \ */
+/*       v.refl, v.xsect,					 \ */
+/*       v.rho_x, v.rho_y, v.rho_z, v.rho,			 \ */
+/*       v.ox, v.oy, v.oz,					 \ */
+/*       v.b1x, v.b1y, v.b1z,				 \ */
+/*       v.b2x, v.b2y, v.b2z,				 \ */
+/*       v.l11, v.l12, v.l22,				 \ */
+/*       v.y0x, v.y0y) */
 
   struct hkl_info_struct {
     int count;                  /* Number of reflections */
@@ -10701,6 +10734,33 @@ unsigned int mt_random_opencl(void) // Should be called by others
     int nb_reuses, nb_refl, nb_refl_count;
     int max_tau_count;
   };
+
+/* #pragma omp declare mapper(hkl_info_struct : struct hkl_info_struct v) \ */
+/*   map(v,							       \ */
+/*       v.count,							       \ */
+/*       v.m_delta_d_d,						       \ */
+/*       v.m_ax, v.m_ay, v.m_az,					       \ */
+/*       v.m_bx, v.m_by, v.m_bz,					       \ */
+/*       v.m_cx, v.m_cy, v.m_cz,					       \ */
+/*       v.asx, v.asy, v.asz,					       \ */
+/*       v.bsx, v.bsy, v.bsz,					       \ */
+/*       v.csx, v.csy, v.csz,					       \ */
+/*       v.m_a, v.m_b, v.m_c,					       \ */
+/*       v.m_aa, v.m_bb, v.m_cc,					       \ */
+/*       v.sigma_a, v.sigma_i,					       \ */
+/*       v.rho, v.at_weight, v.at_nb,				       \ */
+/*       v.V0,							       \ */
+/*       v.column_order[0:5],					       \ */
+/*       v.recip, v.shape,						       \ */
+/*       v.flag_warning, v.flag_barns,				       \ */
+/*       v.type,							       \ */
+/*       v.h, v.k, v.l,						       \ */
+/*       v.tau_count,						       \ */
+/*       v.coh_refl, v.coh_xsect,					       \ */
+/*       v.kix, v.kiy, v.kiz,					       \ */
+/*       v.nb_reuses, v.nb_refl, v.nb_refl_count,			       \ */
+/*       v.max_tau_count) */
+
   #pragma acc routine
   int
   SX_list_compare (void const* a, void const* b) {
@@ -11639,6 +11699,28 @@ struct _struct_Single_crystal {
 typedef struct _struct_Single_crystal _class_Single_crystal;
 _class_Single_crystal _sample_var;
 
+#pragma omp declare mapper(struct _struct_Single_crystal v) \
+  map(v._name) \
+  map(v._type) \
+  map(v._position_absolute) \
+  map(v._position_relative) \
+  map(v._rotation_absolute) \
+  map(v._rotation_relative) \
+  map(v.reflections) \
+  map(v.geometry) \
+  map(v.mosaic_AB[0:8]) \
+  map(v.xwidth, v.yheight, v.zdepth, v.radius) \
+  map(v.delta_d_d, v.mosaic, v.mosaic_a, v.mosaic_b, v.mosaic_c) \
+  map(v.recip_cell, v.barns) \
+  map(v.ax, v.ay, v.az) \
+  map(v.bx, v.by, v.bz) \
+  map(v.cx, v.cy, v.cz) \
+  map(v.p_transmit, v.sigma_abs, v.sigma_inc) \
+  map(v.aa, v.bb, v.cc) \
+  map(v.order, v.extra_order) \
+  map(v.RX, v.RY) \
+  map(v.powder, v.PG, v.deltak) \
+  map(v.hkl_info)
 
 /* Parameters for component type 'PSD_monitor_4PI' */
 struct _struct_PSD_monitor_4PI {
@@ -11665,6 +11747,8 @@ struct _struct_PSD_monitor_4PI {
 };
 typedef struct _struct_PSD_monitor_4PI _class_PSD_monitor_4PI;
 _class_PSD_monitor_4PI _det_var;
+
+#pragma omp declare target link(_Origin_var, _source_var, _slit_var, _sample_var, _det_var)
 
 int mcNUMCOMP = 5;
 
@@ -12817,6 +12901,7 @@ void class_Slit_trace(_class_Slit *_comp
   return;
 } /* class_Slit_trace */
 
+#pragma omp begin declare target
 void class_Single_crystal_trace(_class_Single_crystal *_comp
   , _class_particle *_particle) {
   ABSORBED=SCATTERED=RESTORE=0;
@@ -12922,7 +13007,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   #else
   #define thread_offdata offdata
   #endif
-
+  
   /* Intersection neutron trajectory / sample (sample surface) */
   if (hkl_info.shape == 0)
     intersect = cylinder_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius, yheight);
@@ -13363,6 +13448,7 @@ if (_comp->_index == 4) { // EXTEND 'sample'
   #undef tau_list
   return;
 } /* class_Single_crystal_trace */
+#pragma omp end declare target
 
 void class_PSD_monitor_4PI_trace(_class_PSD_monitor_4PI *_comp
   , _class_particle *_particle) {
@@ -13400,14 +13486,15 @@ void class_PSD_monitor_4PI_trace(_class_PSD_monitor_4PI *_comp
       j = 0;
 
     double p2 = p * p;
+    int idx = i + ny * j;
     #pragma omp atomic update
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
     #pragma omp atomic update
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
     #pragma omp atomic update
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
 
     SCATTER;
   }
@@ -13528,7 +13615,8 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
     _class_particle Split_sample_particle=*_particle;
     int Split_sample_counter;
     int SplitS_sample = _instrument_var.REPS;
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+    #pragma omp target teams num_teams(64) thread_limit(16)
+    #pragma omp loop
     for (Split_sample_counter = 0; Split_sample_counter< SplitS_sample; Split_sample_counter++) {
       randstate_t randbackup = *_particle->randstate;
       *_particle=Split_sample_particle;
@@ -13603,6 +13691,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   /* CPU-loop */
   unsigned long long loops;
   loops = ceil((double)ncount/gpu_innerloop);
+  printf("CPU-loops: %llu \n", loops);
   /* if on GPU, printf has been globally nullified, re-enable here */
   #if defined(OPENACC) || defined(_OPENMP)
   #undef strlen
@@ -13633,11 +13722,22 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 #pragma omp target data map(tofrom: _Origin_var)
 #pragma omp target data map(tofrom: _source_var)
 #pragma omp target data map(tofrom: _slit_var)
-#pragma omp target data map(tofrom: _sample_var)
-#pragma omp target data map(tofrom: _det_var)
+#pragma omp target data \
+    map(tofrom: _sample_var.hkl_list[0:_sample_var.hkl_info.count]) \
+    map(tofrom: _sample_var.offdata.vtxArray[0:_sample_var.offdata.vtxSize]) \
+    map(tofrom: _sample_var.offdata.normalArray[0:_sample_var.offdata.polySize]) \
+    map(tofrom: _sample_var.offdata.faceArray[0:_sample_var.offdata.faceSize]) \
+    map(tofrom: _sample_var.offdata.DArray[0:_sample_var.offdata.polySize]) \
+    map(tofrom: _sample_var.offdata.intersects[0:OFF_INTERSECT_MAX]) \
+    map(tofrom: _sample_var)
+#pragma omp target data map(tofrom: _det_var.PSD_N[0][0:_det_var.ny*_det_var.nx], \
+			            _det_var.PSD_p[0][0:_det_var.ny*_det_var.nx], \
+			            _det_var.PSD_p2[0][0:_det_var.ny*_det_var.nx], \
+			            _det_var)
 #pragma omp target data map(to:_instrument_var)
   {
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+    #pragma omp target teams num_teams(1) thread_limit(5)
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -13647,8 +13747,9 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
       #endif
 
       srandom(_hash((pidx+1)*(seed+1)));
-
-      raytrace(_particle);
+      if (gpu_innerloop > 0 && _particle != NULL){
+	raytrace(_particle);
+      }
     } /* inner for */
     seed = seed+gpu_innerloop;
   } /* target data map section */
