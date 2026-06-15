@@ -1291,9 +1291,10 @@ TRACE
   double t1, t2 = 0;  /* Entry and exit times in sample */
   struct hkl_data* L; /* Structure factor list */
   int i;              /* Index into structure factor list */
-                      #if !defined(OPENACC) && !defined(_OPENMP)
+
+  #if !defined(OPENACC) && !defined(_OPENMP)
   struct tau_data* T; /* List of reflections close to Ewald sphere */
-                      #else
+  #else
   struct tau_data T[MCSX_REFL_SLIST_SIZE];
   #endif
   int tau_count;              /* Number of reflections close to Ewald sphere*/
