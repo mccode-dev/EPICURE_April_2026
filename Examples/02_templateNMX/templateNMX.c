@@ -6737,6 +6737,7 @@ int inside_rectangle(double x, double y, double xwidth, double yheight)
  *      or 1 in case of intersection with resulting times dt_in and dt_out
  * This function written by Stine Nyborg, 1999.
  *******************************************************************************/
+
 int box_intersect(double *dt_in, double *dt_out,
                   double x, double y, double z,
                   double vx, double vy, double vz,
@@ -6991,6 +6992,8 @@ struct _instrument_struct {
   char* reflections;
   struct instrument_logic_struct logic; /* instrument logic */
 } _instrument_var;
+#pragma omp declare target link(_instrument_var)
+
 struct _instrument_struct *instrument = & _instrument_var;
 
 int numipar = 2;
@@ -10157,6 +10160,8 @@ struct _struct_PSD_monitor_4PI {
 typedef struct _struct_PSD_monitor_4PI _class_PSD_monitor_4PI;
 _class_PSD_monitor_4PI _det_var;
 
+#pragma omp declare target link(_Origin_var, _source_var, _slit_var, _sample_var, _det_var)
+
 int mcNUMCOMP = 5;
 
 /* User declarations from instrument definition. Can define functions. */
@@ -11887,14 +11892,15 @@ void class_PSD_monitor_4PI_trace(_class_PSD_monitor_4PI *_comp
       j = 0;
 
     double p2 = p * p;
+    int idx = i + ny * j;
     #pragma omp atomic update
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
     #pragma omp atomic update
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
     #pragma omp atomic update
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
 
     SCATTER;
   }
@@ -12015,7 +12021,6 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
     _class_particle Split_sample_particle=*_particle;
     int Split_sample_counter;
     int SplitS_sample = _instrument_var.REPS;
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
     for (Split_sample_counter = 0; Split_sample_counter< SplitS_sample; Split_sample_counter++) {
       randstate_t randbackup = *_particle->randstate;
       *_particle=Split_sample_particle;
@@ -12117,20 +12122,25 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-#pragma omp target data map(tofrom: _Origin_var)
-#pragma omp target data map(tofrom: _source_var)
-#pragma omp target data map(tofrom: _slit_var)
-#pragma omp target data map(tofrom: _sample_var)
-#pragma omp target data map(tofrom: _det_var)
-#pragma omp target data map(to:_instrument_var)
+  #pragma omp target data map(to: _Origin_var)
+  #pragma omp target data map(to: _source_var)
+  #pragma omp target data map(to: _slit_var)
+  #pragma omp target data map(to: _sample_var)
+  #pragma omp target data map(to: _sample_var.hkl_list[0:_sample_var.hkl_info.count])
+  #pragma omp target data map(tofrom: _det_var)
+  #pragma omp target data map(tofrom: _det_var.PSD_N[0][0:_det_var.ny*_det_var.nx], \
+			      _det_var.PSD_p[0][0:_det_var.ny*_det_var.nx], \
+			      _det_var.PSD_p2[0][0:_det_var.ny*_det_var.nx])
+  #pragma omp target data map(to:_instrument_var)
   {
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+  #pragma omp target teams thread_limit(64)
+  #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
       particleN._uid = pidx;
       #ifdef USE_MPI
-      particleN._uid += mpi_node_rank * ncount; 
+      particleN._uid += mpi_node_rank * ncount;
       #endif
 
       srandom(_hash((pidx+1)*(seed+1)));
