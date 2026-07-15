@@ -27,6 +27,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <omp.h>
 
 typedef double MCNUM;
 typedef struct {MCNUM x, y, z;} Coords;
@@ -60,8 +61,8 @@ struct _struct_particle {
   double vx,vy,vz; /* velocity [m/s] */
   double sx,sy,sz; /* spin [0-1] */
   int mcgravitation; /* gravity-state */
-  void *mcMagnet;    /* precession-state */
   int allow_backprop; /* allow backprop */
+  void *mcMagnet;    /* precession-state */
   /* Generic Temporaries: */
   /* May be used internally by components e.g. for special */
   /* return-values from functions used in trace, thusreturned via */
@@ -9159,10 +9160,10 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double xsect;
     /* The following vectors are in local koordinates. */
     double rho_x, rho_y, rho_z; /* The vector ki - tau */
-    double rho;                 /* Length of rho vector */
+    //double rho;                 /* Length of rho vector */
     double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
-    double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
-    double b2x, b2y, b2z;
+    //double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
+    //double b2x, b2y, b2z;
     double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
     double y0x, y0y;      /* 2D Gauss center in tangent plane */
   };
@@ -9786,6 +9787,20 @@ unsigned int mt_random_opencl(void) // Should be called by others
     this function returns:
       tau_count (return), coh_refl, coh_xsect, T (updated elements in the array up to [j])
    */
+
+double calc_rho(double rho_x, double rho_y, double rho_z) {
+  double rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+  return rho;
+}
+
+void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, double rho_z) {
+  double rho = calc_rho(rho_x, rho_y, rho_z);
+  *nx = rho_x / rho;
+  *ny = rho_y / rho;
+  *nz = rho_z / rho;
+}
+
+
   #pragma acc routine
   int
   hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect) {
@@ -9820,7 +9835,7 @@ unsigned int mt_random_opencl(void) // Should be called by others
       rho_x = kix - L[i].tau_x;
       rho_y = kiy - L[i].tau_y;
       rho_z = kiz - L[i].tau_z;
-      rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+      rho = calc_rho(rho_x, rho_y, rho_z);
       diff = fabs (rho - ki);
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
@@ -9834,26 +9849,17 @@ unsigned int mt_random_opencl(void) // Should be called by others
         T[j].rho_x = kx - L[i].tau;
         T[j].rho_y = ky;
         T[j].rho_z = kz;
-        T[j].rho = rho;
         /* Compute the tangent plane of the Ewald sphere. */
-        nx = T[j].rho_x / T[j].rho;
-        ny = T[j].rho_y / T[j].rho;
-        nz = T[j].rho_z / T[j].rho;
-        ox = (ki - T[j].rho) * nx;
-        oy = (ki - T[j].rho) * ny;
-        oz = (ki - T[j].rho) * nz;
+	calc_n_xyz(&nx, &ny, &nz, rho_x, rho_y, rho_z);
+        ox = (ki - rho) * nx;
+        oy = (ki - rho) * ny;
+        oz = (ki - rho) * nz;
         T[j].ox = ox;
         T[j].oy = oy;
         T[j].oz = oz;
         /* Compute unit vectors b1 and b2 that span the tangent plane. */
         normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
         vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
-        T[j].b1x = b1x;
-        T[j].b1y = b1y;
-        T[j].b1z = b1z;
-        T[j].b2x = b2x;
-        T[j].b2y = b2y;
-        T[j].b2z = b2z;
         /* Compute the 2D projection of the 3D Gauss of the reflection. */
         /* The symmetric 2x2 matrix N describing the 2D gauss. */
         n11 = L[i].m1 * b1x * b1x + L[i].m2 * b1y * b1y + L[i].m3 * b1z * b1z;
@@ -11368,6 +11374,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   struct tau_data* T; /* List of reflections close to Ewald sphere */
   #else
   struct tau_data T[MCSX_REFL_SLIST_SIZE];
+  // #pragma omp allocate(T) allocator(omp_pteam_mem_alloc)
   #endif
   int tau_count;              /* Number of reflections close to Ewald sphere*/
   int j;                      /* Index into reflection list */
@@ -11549,7 +11556,6 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
       /* (2). Intersection of Ewald sphere with reciprocal lattice points */
 
       double coh_xsect = 0, coh_refl = 0;
-
       // Condition to skip calculation of coherent cross section when, needed for extra_order feature
       if (order == 0 || extra_order == 0 || event_counter < order) {
         #if !defined(OPENACC) && !defined(_OPENMP)
@@ -11738,9 +11744,13 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         z2 = randnorm ();
         y1 = T[j].l11 * z1 + T[j].y0x;
         y2 = T[j].l12 * z1 + T[j].l22 * z2 + T[j].y0y;
-        kfx = T[j].rho_x + T[j].ox + T[j].b1x * y1 + T[j].b2x * y2;
-        kfy = T[j].rho_y + T[j].oy + T[j].b1y * y1 + T[j].b2y * y2;
-        kfz = T[j].rho_z + T[j].oz + T[j].b1z * y1 + T[j].b2z * y2;
+        double nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
+        calc_n_xyz(&nx, &ny, &nz, T[j].rho_x, T[j].rho_y, T[j].rho_z);
+        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+        kfx = T[j].rho_x + T[j].ox + b1x * y1 + b2x * y2;
+        kfy = T[j].rho_y + T[j].oy + b1y * y1 + b2y * y2;
+        kfz = T[j].rho_z + T[j].oz + b1z * y1 + b2z * y2;
 
         /* Normalize kf to length of ki, to account for planer
           approximation of the Ewald sphere. */
@@ -12133,7 +12143,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 			      _det_var.PSD_p2[0][0:_det_var.ny*_det_var.nx])
   #pragma omp target data map(to:_instrument_var)
   {
-  #pragma omp target teams thread_limit(64)
+  #pragma omp target teams
   #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
