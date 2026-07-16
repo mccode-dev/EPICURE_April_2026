@@ -9164,8 +9164,8 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
     //double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
     //double b2x, b2y, b2z;
-    double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
-    double y0x, y0y;      /* 2D Gauss center in tangent plane */
+    //double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
+    //double y0x, y0y;      /* 2D Gauss center in tangent plane */
   };
 
   struct hkl_info_struct {
@@ -9800,6 +9800,43 @@ void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, 
   *nz = rho_z / rho;
 }
 
+void calc_nxx(double* n11, double* n12, double* n22, double m1, double m2, double m3,
+	      double b1x, double b1y, double b1z, double b2x, double b2y, double b2z) {
+  *n11 = m1 * b1x * b1x + m2 * b1y * b1y + m3 * b1z * b1z;
+  *n12 = m1 * b1x * b2x + m2 * b1y * b2y + m3 * b1z * b2z;
+  *n22 = m1 * b2x * b2x + m2 * b2y * b2y + m3 * b2z * b2z;
+}
+
+void calc_inv_nxx(double* inv_n11, double* inv_n12, double* inv_n22,
+		  double n11, double n12, double n22) {
+  /* The (symmetric) inverse matrix of N. */
+  double det_N = n11 * n22 - n12 * n12;
+  *inv_n11 = n22 / det_N;
+  *inv_n12 = -n12 / det_N;
+  *inv_n22 = n11 / det_N;
+}
+
+void calc_lxx(double* l11, double* l12, double* l22,
+	      double inv_n11, double inv_n12, double inv_n22) {
+  *l11 = sqrt (inv_n11 / 2);
+  *l12 = inv_n12 / (2 * *l11);
+  *l22 = sqrt (inv_n22 / 2 - *l12 * *l12);
+}
+
+void calc_y0(double* y0x, double* y0y,
+	     double b1x, double b1y, double b1z,
+	     double b2x, double b2y, double b2z,
+	     double ox, double oy, double oz,
+	     double m1, double m2, double m3,
+	     double inv_n11, double inv_n12, double inv_n22) {
+  /* The product B^T D o. */
+  double Bt_D_O_x = b1x * m1 * ox + b1y * m2 * oy + b1z * m3 * oz;
+  double Bt_D_O_y = b2x * m1 * ox + b2y * m2 * oy + b2z * m3 * oz;
+  /* Center of 2D Gauss in plane coordinates. */
+  *y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
+  *y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
+}
+
 
   #pragma acc routine
   int
@@ -9809,7 +9846,7 @@ void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, 
     int i, j;
     double ox, oy, oz;
     double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
-    double n11, n22, n12, det_N, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
+    double n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
     double Bt_D_O_x, Bt_D_O_y, y0x, y0y, alpha;
 
     double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
@@ -9850,7 +9887,7 @@ void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, 
         T[j].rho_y = ky;
         T[j].rho_z = kz;
         /* Compute the tangent plane of the Ewald sphere. */
-	calc_n_xyz(&nx, &ny, &nz, rho_x, rho_y, rho_z);
+        calc_n_xyz(&nx, &ny, &nz, rho_x, rho_y, rho_z);
         ox = (ki - rho) * nx;
         oy = (ki - rho) * ny;
         oz = (ki - rho) * nz;
@@ -9862,30 +9899,13 @@ void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, 
         vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
         /* Compute the 2D projection of the 3D Gauss of the reflection. */
         /* The symmetric 2x2 matrix N describing the 2D gauss. */
-        n11 = L[i].m1 * b1x * b1x + L[i].m2 * b1y * b1y + L[i].m3 * b1z * b1z;
-        n12 = L[i].m1 * b1x * b2x + L[i].m2 * b1y * b2y + L[i].m3 * b1z * b2z;
-        n22 = L[i].m1 * b2x * b2x + L[i].m2 * b2y * b2y + L[i].m3 * b2z * b2z;
-        /* The (symmetric) inverse matrix of N. */
-        det_N = n11 * n22 - n12 * n12;
-        inv_n11 = n22 / det_N;
-        inv_n12 = -n12 / det_N;
-        inv_n22 = n11 / det_N;
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
         /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
-        l11 = sqrt (inv_n11 / 2);
-        l12 = inv_n12 / (2 * l11);
-        l22 = sqrt (inv_n22 / 2 - l12 * l12);
-        T[j].l11 = l11;
-        T[j].l12 = l12;
-        T[j].l22 = l22;
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
         det_L = l11 * l22;
-        /* The product B^T D o. */
-        Bt_D_O_x = b1x * L[i].m1 * ox + b1y * L[i].m2 * oy + b1z * L[i].m3 * oz;
-        Bt_D_O_y = b2x * L[i].m1 * ox + b2y * L[i].m2 * oy + b2z * L[i].m3 * oz;
-        /* Center of 2D Gauss in plane coordinates. */
-        y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
-        y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
-        T[j].y0x = y0x;
-        T[j].y0y = y0y;
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
         /* Factor alpha for the distance of the 2D Gauss from the origin. */
         alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
         T[j].refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
@@ -11742,12 +11762,20 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
         z1 = randnorm ();
         z2 = randnorm ();
-        y1 = T[j].l11 * z1 + T[j].y0x;
-        y2 = T[j].l12 * z1 + T[j].l22 * z2 + T[j].y0y;
+
         double nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
         calc_n_xyz(&nx, &ny, &nz, T[j].rho_x, T[j].rho_y, T[j].rho_z);
         normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
         vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+
+        double n11, n12, n22, inv_n11, inv_n12, inv_n22, l11, l12, l22, y0x, y0y;
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, T[j].ox, T[j].oy, T[j].oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+        y1 = l11 * z1 + y0x;
+        y2 = l12 * z1 + l22 * z2 + y0y;
         kfx = T[j].rho_x + T[j].ox + b1x * y1 + b2x * y2;
         kfy = T[j].rho_y + T[j].oy + b1y * y1 + b2y * y2;
         kfz = T[j].rho_z + T[j].oz + b1z * y1 + b2z * y2;
