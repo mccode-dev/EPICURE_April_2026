@@ -9887,7 +9887,7 @@ void calc_y0(double* y0x, double* y0y,
         T[j].rho_y = ky;
         T[j].rho_z = kz;
         /* Compute the tangent plane of the Ewald sphere. */
-        calc_n_xyz(&nx, &ny, &nz, rho_x, rho_y, rho_z);
+        calc_n_xyz(&nx, &ny, &nz, T[j].rho_x, T[j].rho_y, T[j].rho_z);
         ox = (ki - rho) * nx;
         oy = (ki - rho) * ny;
         oz = (ki - rho) * nz;
