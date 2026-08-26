@@ -9138,7 +9138,7 @@ unsigned int mt_random_opencl(void) // Should be called by others
   #endif
 
   #ifndef MCSX_REFL_SLIST_SIZE
-  #define MCSX_REFL_SLIST_SIZE 128
+  #define MCSX_REFL_SLIST_SIZE 4096
   #endif
 
   struct hkl_data {
@@ -9155,9 +9155,9 @@ unsigned int mt_random_opencl(void) // Should be called by others
   };
 
   struct tau_data {
-    int index; /* Index into reflection table */
-    double refl;
-    double xsect;
+    //int index; /* Index into reflection table */
+    //double refl;
+    //double xsect;
     /* The following vectors are in local koordinates. */
     //double rho_x, rho_y, rho_z; /* The vector ki - tau */
     //double rho;                 /* Length of rho vector */
@@ -9862,7 +9862,7 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
  
   #pragma acc routine
   int
-  hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect) {
+  hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect, double* sum, int* idx, _class_particle* _particle) {
     double rho, rho_x, rho_y, rho_z;
     double diff;
     int i, j;
@@ -9874,7 +9874,7 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
     double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
     int jglobal = -1;
     double coherent_refl, coherent_xsect;
-
+    double refl, xsect;
     double rhoj_x, rhoj_y, rhoj_z;
     struct tau_data* T = (struct tau_data*)TT;
 
@@ -9885,7 +9885,7 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
 
     /* Common factor in coherent cross-section */
     double xsect_factor = pow (2 * PI, 5.0 / 2.0) / (V0 * ki * ki);
-    j = 0;
+    int tau_count = 0;
     for (i = 0; i < count; i++) {
       /* Assuming reflections are sorted, stop search when max tau exceeded. */
       if (L[i].tau > tau_max)
@@ -9899,8 +9899,6 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
       if (diff <= L[i].cutoff) {
-        /* Store reflection. */
-        T[j].index = i;
         /* Get ki vector in local coordinates. */
         kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
         ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
@@ -9926,33 +9924,80 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
 
         /* Factor alpha for the distance of the 2D Gauss from the origin. */
         alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
-        T[j].refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
-        *coh_refl += T[j].refl;                                        /* total scatterable intensity*/
-        T[j].xsect = T[j].refl * L[i].F2;
-        *coh_xsect += T[j].xsect;
-        j++;
-      }
-      /*protect against tau shortlist buffer overrrun*/
-      if (j == MCSX_REFL_SLIST_SIZE) {
-        break;
+        refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
+        *coh_refl += refl;                                        /* total scatterable intensity*/
+        xsect = refl * L[i].F2;
+        *coh_xsect += xsect;
+        tau_count++;
       }
     } /* end for */
-    return (j); // this is 'tau_count', i.e. number of reachable reflections
+
+    double r = rand0max (*coh_refl);
+    *sum = 0;
+    for (i = 0; i < tau_count; i++) {
+      /* Assuming reflections are sorted, stop search when max tau exceeded. */
+      if (L[i].tau > tau_max)
+        break;
+      /* Check if this reciprocal lattice point is close enough to the
+         Ewald sphere to make scattering possible. */
+
+      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+      rho = calc_rho(rho_x, rho_y, rho_z);
+      diff = fabs (rho - ki);
+
+      /* Check if scattering is possible (cutoff of Gaussian tails). */
+      if (diff <= L[i].cutoff) {
+	/* Store reflection. */
+        *idx = i;
+	
+        /* Get ki vector in local coordinates. */
+        kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
+		      kx,  ky,  kz, L[i].tau);
+        /* Compute the tangent plane of the Ewald sphere. */
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+
+        /* Compute unit vectors b1 and b2 that span the tangent plane. */
+        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+        /* Compute the 2D projection of the 3D Gauss of the reflection. */
+        /* The symmetric 2x2 matrix N describing the 2D gauss. */
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+        /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+        det_L = l11 * l22;
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+        /* Factor alpha for the distance of the 2D Gauss from the origin. */
+        alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
+        refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
+      
+	*sum += refl;
+      }
+      if (*sum > r)
+        return(tau_count);
+    }
+    return (tau_count); // this is 'tau_count', i.e. number of reachable reflections
   } /* end hkl_search */
 
-  #pragma acc routine
-  int
-  hkl_select (struct tau_data* T, int tau_count, double coh_refl, double* sum, _class_particle* _particle) {
-    int j;
-    double r = rand0max (coh_refl);
-    *sum = 0;
-    for (j = 0; j < tau_count; j++) {
-      *sum += T[j].refl;
-      if (*sum > r)
-        break;
-    }
-    return j;
-  }
+  /* #pragma acc routine */
+  /* int */
+  /* hkl_select (struct tau_data* T, int tau_count, double coh_refl, double* sum, _class_particle* _particle) { */
+  /*   int j; */
+  /*   double r = rand0max (coh_refl); */
+  /*   *sum = 0; */
+  /*   for (j = 0; j < tau_count; j++) { */
+  /*     *sum += T[j].refl; */
+  /*     if (*sum > r) */
+  /*       break; */
+  /*   } */
+  /*   return j; */
+  /* } */
 
   /* Functions for "reorientation", powder and PG modes */
   /* Powder, forward */
@@ -11623,7 +11668,9 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
           } else
             #endif
 
-            tau_count = hkl_search (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect);
+	  i = 0;
+	  sum = 0;
+	  tau_count = hkl_search (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect, &sum, &i, _particle);
 
           /* store ki so that we can check for further SPLIT iterations */
           #if !defined(OPENACC) && !defined(_OPENMP)
@@ -11763,20 +11810,20 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         if (coh_refl <= 0) {
           ABSORB;
         }
-        sum = 0;
-        j = hkl_select (T, tau_count, coh_refl, &sum, _particle);
-        if (j >= tau_count) {
-          #if !defined(OPENACC) && !defined(_OPENMP)
-          if (hkl_info.flag_warning < 10)
-            fprintf (stderr,
-                     "Single_crystal: Error: Illegal tau search "
-                     "(sum=%g, j=%i, tau_count=%i).\n",
-                     sum, j, tau_count);
-          hkl_info.flag_warning++;
-          #endif
-          j = tau_count - 1;
-        }
-        i = T[j].index;
+        /* sum = 0; */
+        /* j = hkl_select (T, tau_count, coh_refl, &sum, _particle); */
+        /* if (j >= tau_count) { */
+        /*   #if !defined(OPENACC) && !defined(_OPENMP) */
+        /*   if (hkl_info.flag_warning < 10) */
+        /*     fprintf (stderr, */
+        /*              "Single_crystal: Error: Illegal tau search " */
+        /*              "(sum=%g, j=%i, tau_count=%i).\n", */
+        /*              sum, j, tau_count); */
+        /*   hkl_info.flag_warning++; */
+        /*   #endif */
+        /*   j = tau_count - 1; */
+        /* } */
+        /* i = T[j].index; */
         /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
         z1 = randnorm ();
         z2 = randnorm ();
@@ -11817,9 +11864,9 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         kfy *= adjust;
         kfz *= adjust;
         /* Adjust neutron weight (see manual for explanation). */
-        double pmul = T[j].xsect * coh_refl / (coh_xsect * T[j].refl);
-        if (!isnan (pmul))
-          p *= pmul;
+        /* double pmul = T[j].xsect * coh_refl / (coh_xsect * T[j].refl); */
+        /* if (!isnan (pmul)) */
+        /*   p *= pmul; */
         vx = K2V * (L[i].u1x * kfx + L[i].u2x * kfy + L[i].u3x * kfz);
         vy = K2V * (L[i].u1y * kfx + L[i].u2y * kfy + L[i].u3y * kfz);
         vz = K2V * (L[i].u1z * kfx + L[i].u2z * kfy + L[i].u3z * kfz);
