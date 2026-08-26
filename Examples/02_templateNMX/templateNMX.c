@@ -11960,7 +11960,7 @@ void class_PSD_monitor_4PI_trace(_class_PSD_monitor_4PI *_comp
       j = 0;
 
     double p2 = p * p;
-    int idx = i + ny * j;
+    int idx = i * ny + j;
     #pragma omp atomic update
     PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
