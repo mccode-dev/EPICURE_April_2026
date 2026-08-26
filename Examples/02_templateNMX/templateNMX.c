@@ -27,6 +27,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <omp.h>
 
 typedef double MCNUM;
 typedef struct {MCNUM x, y, z;} Coords;
@@ -60,8 +61,8 @@ struct _struct_particle {
   double vx,vy,vz; /* velocity [m/s] */
   double sx,sy,sz; /* spin [0-1] */
   int mcgravitation; /* gravity-state */
-  void *mcMagnet;    /* precession-state */
   int allow_backprop; /* allow backprop */
+  void *mcMagnet;    /* precession-state */
   /* Generic Temporaries: */
   /* May be used internally by components e.g. for special */
   /* return-values from functions used in trace, thusreturned via */
@@ -6737,6 +6738,7 @@ int inside_rectangle(double x, double y, double xwidth, double yheight)
  *      or 1 in case of intersection with resulting times dt_in and dt_out
  * This function written by Stine Nyborg, 1999.
  *******************************************************************************/
+
 int box_intersect(double *dt_in, double *dt_out,
                   double x, double y, double z,
                   double vx, double vy, double vz,
@@ -6991,6 +6993,8 @@ struct _instrument_struct {
   char* reflections;
   struct instrument_logic_struct logic; /* instrument logic */
 } _instrument_var;
+#pragma omp declare target link(_instrument_var)
+
 struct _instrument_struct *instrument = & _instrument_var;
 
 int numipar = 2;
@@ -9155,13 +9159,13 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double refl;
     double xsect;
     /* The following vectors are in local koordinates. */
-    double rho_x, rho_y, rho_z; /* The vector ki - tau */
-    double rho;                 /* Length of rho vector */
-    double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
-    double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
-    double b2x, b2y, b2z;
-    double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
-    double y0x, y0y;      /* 2D Gauss center in tangent plane */
+    //double rho_x, rho_y, rho_z; /* The vector ki - tau */
+    //double rho;                 /* Length of rho vector */
+    //double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
+    //double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
+    //double b2x, b2y, b2z;
+    //double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
+    //double y0x, y0y;      /* 2D Gauss center in tangent plane */
   };
 
   struct hkl_info_struct {
@@ -9783,6 +9787,79 @@ unsigned int mt_random_opencl(void) // Should be called by others
     this function returns:
       tau_count (return), coh_refl, coh_xsect, T (updated elements in the array up to [j])
    */
+
+void calc_rho_xyz(double *rho_x, double *rho_y, double *rho_z,
+		  double kix, double kiy, double kiz,
+		  double tau_x, double tau_y, double tau_z) {
+  *rho_x = kix - tau_x;
+  *rho_y = kiy - tau_y;
+  *rho_z = kiz - tau_z;
+}
+
+void calc_rhoj_xyz(double *rhoj_x, double *rhoj_y, double *rhoj_z,
+		   double kx, double ky, double kz, double tau) {
+  *rhoj_x = kx - tau;
+  *rhoj_y = ky;
+  *rhoj_z = kz;
+}
+ 
+double calc_rho(double rho_x, double rho_y, double rho_z) {
+  double rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+  return rho;
+}
+
+void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, double rho_z) {
+  double rho = calc_rho(rho_x, rho_y, rho_z);
+  *nx = rho_x / rho;
+  *ny = rho_y / rho;
+  *nz = rho_z / rho;
+}
+
+void calc_nxx(double* n11, double* n12, double* n22, double m1, double m2, double m3,
+	      double b1x, double b1y, double b1z, double b2x, double b2y, double b2z) {
+  *n11 = m1 * b1x * b1x + m2 * b1y * b1y + m3 * b1z * b1z;
+  *n12 = m1 * b1x * b2x + m2 * b1y * b2y + m3 * b1z * b2z;
+  *n22 = m1 * b2x * b2x + m2 * b2y * b2y + m3 * b2z * b2z;
+}
+
+void calc_inv_nxx(double* inv_n11, double* inv_n12, double* inv_n22,
+		  double n11, double n12, double n22) {
+  /* The (symmetric) inverse matrix of N. */
+  double det_N = n11 * n22 - n12 * n12;
+  *inv_n11 = n22 / det_N;
+  *inv_n12 = -n12 / det_N;
+  *inv_n22 = n11 / det_N;
+}
+
+void calc_lxx(double* l11, double* l12, double* l22,
+	      double inv_n11, double inv_n12, double inv_n22) {
+  *l11 = sqrt (inv_n11 / 2);
+  *l12 = inv_n12 / (2 * *l11);
+
+  *l22 = sqrt (inv_n22 / 2 - *l12 * *l12);
+}
+
+void calc_y0(double* y0x, double* y0y,
+	     double b1x, double b1y, double b1z,
+	     double b2x, double b2y, double b2z,
+	     double ox, double oy, double oz,
+	     double m1, double m2, double m3,
+	     double inv_n11, double inv_n12, double inv_n22) {
+  /* The product B^T D o. */
+  double Bt_D_O_x = b1x * m1 * ox + b1y * m2 * oy + b1z * m3 * oz;
+  double Bt_D_O_y = b2x * m1 * ox + b2y * m2 * oy + b2z * m3 * oz;
+  /* Center of 2D Gauss in plane coordinates. */
+  *y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
+  *y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
+}
+
+void calc_o_xyz(double* ox, double* oy, double* oz,
+		double ki, double rho, double nx, double ny, double nz) {
+  *ox = (ki - rho) * nx;
+  *oy = (ki - rho) * ny;
+  *oz = (ki - rho) * nz;
+}
+ 
   #pragma acc routine
   int
   hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect) {
@@ -9791,13 +9868,14 @@ unsigned int mt_random_opencl(void) // Should be called by others
     int i, j;
     double ox, oy, oz;
     double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
-    double n11, n22, n12, det_N, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
+    double n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
     double Bt_D_O_x, Bt_D_O_y, y0x, y0y, alpha;
 
     double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
     int jglobal = -1;
     double coherent_refl, coherent_xsect;
 
+    double rhoj_x, rhoj_y, rhoj_z;
     struct tau_data* T = (struct tau_data*)TT;
 
     // coherent_refl = *coh_refl;
@@ -9814,10 +9892,9 @@ unsigned int mt_random_opencl(void) // Should be called by others
         break;
       /* Check if this reciprocal lattice point is close enough to the
          Ewald sphere to make scattering possible. */
-      rho_x = kix - L[i].tau_x;
-      rho_y = kiy - L[i].tau_y;
-      rho_z = kiz - L[i].tau_z;
-      rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+
+      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+      rho = calc_rho(rho_x, rho_y, rho_z);
       diff = fabs (rho - ki);
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
@@ -9828,55 +9905,25 @@ unsigned int mt_random_opencl(void) // Should be called by others
         kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
         ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
         kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
-        T[j].rho_x = kx - L[i].tau;
-        T[j].rho_y = ky;
-        T[j].rho_z = kz;
-        T[j].rho = rho;
+
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
+		      kx,  ky,  kz, L[i].tau);
         /* Compute the tangent plane of the Ewald sphere. */
-        nx = T[j].rho_x / T[j].rho;
-        ny = T[j].rho_y / T[j].rho;
-        nz = T[j].rho_z / T[j].rho;
-        ox = (ki - T[j].rho) * nx;
-        oy = (ki - T[j].rho) * ny;
-        oz = (ki - T[j].rho) * nz;
-        T[j].ox = ox;
-        T[j].oy = oy;
-        T[j].oz = oz;
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+
         /* Compute unit vectors b1 and b2 that span the tangent plane. */
         normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
         vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
-        T[j].b1x = b1x;
-        T[j].b1y = b1y;
-        T[j].b1z = b1z;
-        T[j].b2x = b2x;
-        T[j].b2y = b2y;
-        T[j].b2z = b2z;
         /* Compute the 2D projection of the 3D Gauss of the reflection. */
         /* The symmetric 2x2 matrix N describing the 2D gauss. */
-        n11 = L[i].m1 * b1x * b1x + L[i].m2 * b1y * b1y + L[i].m3 * b1z * b1z;
-        n12 = L[i].m1 * b1x * b2x + L[i].m2 * b1y * b2y + L[i].m3 * b1z * b2z;
-        n22 = L[i].m1 * b2x * b2x + L[i].m2 * b2y * b2y + L[i].m3 * b2z * b2z;
-        /* The (symmetric) inverse matrix of N. */
-        det_N = n11 * n22 - n12 * n12;
-        inv_n11 = n22 / det_N;
-        inv_n12 = -n12 / det_N;
-        inv_n22 = n11 / det_N;
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
         /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
-        l11 = sqrt (inv_n11 / 2);
-        l12 = inv_n12 / (2 * l11);
-        l22 = sqrt (inv_n22 / 2 - l12 * l12);
-        T[j].l11 = l11;
-        T[j].l12 = l12;
-        T[j].l22 = l22;
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
         det_L = l11 * l22;
-        /* The product B^T D o. */
-        Bt_D_O_x = b1x * L[i].m1 * ox + b1y * L[i].m2 * oy + b1z * L[i].m3 * oz;
-        Bt_D_O_y = b2x * L[i].m1 * ox + b2y * L[i].m2 * oy + b2z * L[i].m3 * oz;
-        /* Center of 2D Gauss in plane coordinates. */
-        y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
-        y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
-        T[j].y0x = y0x;
-        T[j].y0y = y0y;
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
         /* Factor alpha for the distance of the 2D Gauss from the origin. */
         alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
         T[j].refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
@@ -10156,6 +10203,8 @@ struct _struct_PSD_monitor_4PI {
 };
 typedef struct _struct_PSD_monitor_4PI _class_PSD_monitor_4PI;
 _class_PSD_monitor_4PI _det_var;
+
+#pragma omp declare target link(_Origin_var, _source_var, _slit_var, _sample_var, _det_var)
 
 int mcNUMCOMP = 5;
 
@@ -11363,6 +11412,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   struct tau_data* T; /* List of reflections close to Ewald sphere */
   #else
   struct tau_data T[MCSX_REFL_SLIST_SIZE];
+  // #pragma omp allocate(T) allocator(omp_pteam_mem_alloc)
   #endif
   int tau_count;              /* Number of reflections close to Ewald sphere*/
   int j;                      /* Index into reflection list */
@@ -11544,7 +11594,6 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
       /* (2). Intersection of Ewald sphere with reciprocal lattice points */
 
       double coh_xsect = 0, coh_refl = 0;
-
       // Condition to skip calculation of coherent cross section when, needed for extra_order feature
       if (order == 0 || extra_order == 0 || event_counter < order) {
         #if !defined(OPENACC) && !defined(_OPENMP)
@@ -11731,11 +11780,35 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
         z1 = randnorm ();
         z2 = randnorm ();
-        y1 = T[j].l11 * z1 + T[j].y0x;
-        y2 = T[j].l12 * z1 + T[j].l22 * z2 + T[j].y0y;
-        kfx = T[j].rho_x + T[j].ox + T[j].b1x * y1 + T[j].b2x * y2;
-        kfy = T[j].rho_y + T[j].oy + T[j].b1y * y1 + T[j].b2y * y2;
-        kfz = T[j].rho_z + T[j].oz + T[j].b1z * y1 + T[j].b2z * y2;
+
+	double rho_x, rho_y, rho_z, rho, rhoj_x, rhoj_y, rhoj_z, ox, oy, oz;
+	calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+
+	double kx, ky, kz;
+	kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z, kx,  ky,  kz, L[i].tau);
+	
+        double nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+
+        double n11, n12, n22, inv_n11, inv_n12, inv_n22, l11, l12, l22, y0x, y0y;
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+
+	rho = calc_rho(rho_x, rho_y, rho_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+        y1 = l11 * z1 + y0x;
+        y2 = l12 * z1 + l22 * z2 + y0y;
+        kfx = rhoj_x + ox + b1x * y1 + b2x * y2;
+        kfy = rhoj_y + oy + b1y * y1 + b2y * y2;
+        kfz = rhoj_z + oz + b1z * y1 + b2z * y2;
 
         /* Normalize kf to length of ki, to account for planer
           approximation of the Ewald sphere. */
@@ -11887,14 +11960,15 @@ void class_PSD_monitor_4PI_trace(_class_PSD_monitor_4PI *_comp
       j = 0;
 
     double p2 = p * p;
+    int idx = i + ny * j;
     #pragma omp atomic update
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
     #pragma omp atomic update
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
     #pragma omp atomic update
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
 
     SCATTER;
   }
@@ -12015,7 +12089,6 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
     _class_particle Split_sample_particle=*_particle;
     int Split_sample_counter;
     int SplitS_sample = _instrument_var.REPS;
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
     for (Split_sample_counter = 0; Split_sample_counter< SplitS_sample; Split_sample_counter++) {
       randstate_t randbackup = *_particle->randstate;
       *_particle=Split_sample_particle;
@@ -12117,20 +12190,25 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
 
-#pragma omp target data map(tofrom: _Origin_var)
-#pragma omp target data map(tofrom: _source_var)
-#pragma omp target data map(tofrom: _slit_var)
-#pragma omp target data map(tofrom: _sample_var)
-#pragma omp target data map(tofrom: _det_var)
-#pragma omp target data map(to:_instrument_var)
+  #pragma omp target data map(to: _Origin_var)
+  #pragma omp target data map(to: _source_var)
+  #pragma omp target data map(to: _slit_var)
+  #pragma omp target data map(to: _sample_var)
+  #pragma omp target data map(to: _sample_var.hkl_list[0:_sample_var.hkl_info.count])
+  #pragma omp target data map(tofrom: _det_var)
+  #pragma omp target data map(tofrom: _det_var.PSD_N[0][0:_det_var.ny*_det_var.nx], \
+			      _det_var.PSD_p[0][0:_det_var.ny*_det_var.nx], \
+			      _det_var.PSD_p2[0][0:_det_var.ny*_det_var.nx])
+  #pragma omp target data map(to:_instrument_var)
   {
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+  #pragma omp target teams
+  #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
       particleN._uid = pidx;
       #ifdef USE_MPI
-      particleN._uid += mpi_node_rank * ncount; 
+      particleN._uid += mpi_node_rank * ncount;
       #endif
 
       srandom(_hash((pidx+1)*(seed+1)));
