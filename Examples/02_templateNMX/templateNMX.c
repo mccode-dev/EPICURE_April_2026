@@ -9159,9 +9159,9 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double refl;
     double xsect;
     /* The following vectors are in local koordinates. */
-    double rho_x, rho_y, rho_z; /* The vector ki - tau */
+    //double rho_x, rho_y, rho_z; /* The vector ki - tau */
     //double rho;                 /* Length of rho vector */
-    double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
+    //double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
     //double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
     //double b2x, b2y, b2z;
     //double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
@@ -9788,6 +9788,21 @@ unsigned int mt_random_opencl(void) // Should be called by others
       tau_count (return), coh_refl, coh_xsect, T (updated elements in the array up to [j])
    */
 
+void calc_rho_xyz(double *rho_x, double *rho_y, double *rho_z,
+		  double kix, double kiy, double kiz,
+		  double tau_x, double tau_y, double tau_z) {
+  *rho_x = kix - tau_x;
+  *rho_y = kiy - tau_y;
+  *rho_z = kiz - tau_z;
+}
+
+void calc_rhoj_xyz(double *rhoj_x, double *rhoj_y, double *rhoj_z,
+		   double kx, double ky, double kz, double tau) {
+  *rhoj_x = kx - tau;
+  *rhoj_y = ky;
+  *rhoj_z = kz;
+}
+ 
 double calc_rho(double rho_x, double rho_y, double rho_z) {
   double rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
   return rho;
@@ -9820,6 +9835,7 @@ void calc_lxx(double* l11, double* l12, double* l22,
 	      double inv_n11, double inv_n12, double inv_n22) {
   *l11 = sqrt (inv_n11 / 2);
   *l12 = inv_n12 / (2 * *l11);
+
   *l22 = sqrt (inv_n22 / 2 - *l12 * *l12);
 }
 
@@ -9837,7 +9853,13 @@ void calc_y0(double* y0x, double* y0y,
   *y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
 }
 
-
+void calc_o_xyz(double* ox, double* oy, double* oz,
+		double ki, double rho, double nx, double ny, double nz) {
+  *ox = (ki - rho) * nx;
+  *oy = (ki - rho) * ny;
+  *oz = (ki - rho) * nz;
+}
+ 
   #pragma acc routine
   int
   hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect) {
@@ -9853,6 +9875,7 @@ void calc_y0(double* y0x, double* y0y,
     int jglobal = -1;
     double coherent_refl, coherent_xsect;
 
+    double rhoj_x, rhoj_y, rhoj_z;
     struct tau_data* T = (struct tau_data*)TT;
 
     // coherent_refl = *coh_refl;
@@ -9869,9 +9892,8 @@ void calc_y0(double* y0x, double* y0y,
         break;
       /* Check if this reciprocal lattice point is close enough to the
          Ewald sphere to make scattering possible. */
-      rho_x = kix - L[i].tau_x;
-      rho_y = kiy - L[i].tau_y;
-      rho_z = kiz - L[i].tau_z;
+
+      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
       rho = calc_rho(rho_x, rho_y, rho_z);
       diff = fabs (rho - ki);
 
@@ -9883,17 +9905,13 @@ void calc_y0(double* y0x, double* y0y,
         kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
         ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
         kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
-        T[j].rho_x = kx - L[i].tau;
-        T[j].rho_y = ky;
-        T[j].rho_z = kz;
+
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
+		      kx,  ky,  kz, L[i].tau);
         /* Compute the tangent plane of the Ewald sphere. */
-        calc_n_xyz(&nx, &ny, &nz, T[j].rho_x, T[j].rho_y, T[j].rho_z);
-        ox = (ki - rho) * nx;
-        oy = (ki - rho) * ny;
-        oz = (ki - rho) * nz;
-        T[j].ox = ox;
-        T[j].oy = oy;
-        T[j].oz = oz;
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+
         /* Compute unit vectors b1 and b2 that span the tangent plane. */
         normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
         vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
@@ -11763,8 +11781,17 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         z1 = randnorm ();
         z2 = randnorm ();
 
+	double rho_x, rho_y, rho_z, rho, rhoj_x, rhoj_y, rhoj_z, ox, oy, oz;
+	calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+
+	double kx, ky, kz;
+	kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z, kx,  ky,  kz, L[i].tau);
+	
         double nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
-        calc_n_xyz(&nx, &ny, &nz, T[j].rho_x, T[j].rho_y, T[j].rho_z);
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
         normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
         vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
 
@@ -11772,13 +11799,16 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
         calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
         calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
-        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, T[j].ox, T[j].oy, T[j].oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+	rho = calc_rho(rho_x, rho_y, rho_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
 
         y1 = l11 * z1 + y0x;
         y2 = l12 * z1 + l22 * z2 + y0y;
-        kfx = T[j].rho_x + T[j].ox + b1x * y1 + b2x * y2;
-        kfy = T[j].rho_y + T[j].oy + b1y * y1 + b2y * y2;
-        kfz = T[j].rho_z + T[j].oz + b1z * y1 + b2z * y2;
+        kfx = rhoj_x + ox + b1x * y1 + b2x * y2;
+        kfy = rhoj_y + oy + b1y * y1 + b2y * y2;
+        kfz = rhoj_z + oz + b1z * y1 + b2z * y2;
 
         /* Normalize kf to length of ki, to account for planer
           approximation of the Ewald sphere. */
