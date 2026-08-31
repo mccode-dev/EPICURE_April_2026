@@ -9859,23 +9859,54 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
   *oy = (ki - rho) * ny;
   *oz = (ki - rho) * nz;
 }
- 
+
+double calc_refl(struct hkl_data* L, int i, double xsect_factor, double rho, double kix, double kiy, double kiz, double ki) {
+  double rhoj_x, rhoj_y, rhoj_z;
+  double ox, oy, oz;
+  double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
+  double n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
+  double y0x, y0y, alpha;
+
+  /* Get ki vector in local coordinates. */
+  kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+  ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+  kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+
+  calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
+		kx,  ky,  kz, L[i].tau);
+  /* Compute the tangent plane of the Ewald sphere. */
+  calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+  calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+
+  /* Compute unit vectors b1 and b2 that span the tangent plane. */
+  normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+  vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+  /* Compute the 2D projection of the 3D Gauss of the reflection. */
+  /* The symmetric 2x2 matrix N describing the 2D gauss. */
+  calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+  calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+  /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
+  calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+  det_L = l11 * l22;
+  calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+  /* Factor alpha for the distance of the 2D Gauss from the origin. */
+  alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
+  return xsect_factor * det_L * exp (-alpha) / L[i].sig123;
+}
+
   #pragma acc routine
   int
   hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect, double* sum, int* idx, _class_particle* _particle) {
     double rho, rho_x, rho_y, rho_z;
     double diff;
     int i, j;
-    double ox, oy, oz;
-    double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
-    double n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
-    double Bt_D_O_x, Bt_D_O_y, y0x, y0y, alpha;
 
     double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
     int jglobal = -1;
     double coherent_refl, coherent_xsect;
-    double refl, xsect;
-    double rhoj_x, rhoj_y, rhoj_z;
+    double refl;
+
     struct tau_data* T = (struct tau_data*)TT;
 
     // coherent_refl = *coh_refl;
@@ -9885,7 +9916,7 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
 
     /* Common factor in coherent cross-section */
     double xsect_factor = pow (2 * PI, 5.0 / 2.0) / (V0 * ki * ki);
-    int tau_count = 0;
+    j = 0;
     for (i = 0; i < count; i++) {
       /* Assuming reflections are sorted, stop search when max tau exceeded. */
       if (L[i].tau > tau_max)
@@ -9899,90 +9930,34 @@ void calc_o_xyz(double* ox, double* oy, double* oz,
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
       if (diff <= L[i].cutoff) {
-        /* Get ki vector in local coordinates. */
-        kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
-        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
-        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
-
-	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
-		      kx,  ky,  kz, L[i].tau);
-        /* Compute the tangent plane of the Ewald sphere. */
-        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
-	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
-
-        /* Compute unit vectors b1 and b2 that span the tangent plane. */
-        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
-        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
-        /* Compute the 2D projection of the 3D Gauss of the reflection. */
-        /* The symmetric 2x2 matrix N describing the 2D gauss. */
-        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
-        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
-        /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
-        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
-        det_L = l11 * l22;
-        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
-
-        /* Factor alpha for the distance of the 2D Gauss from the origin. */
-        alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
-        refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
+        refl = calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
         *coh_refl += refl;                                        /* total scatterable intensity*/
-        xsect = refl * L[i].F2;
-        *coh_xsect += xsect;
-        tau_count++;
+        *coh_xsect += refl * L[i].F2;
+        j++;
       }
     } /* end for */
 
+    rho = 0, rho_x = 0, rho_y = 0, rho_z = 0;
     double r = rand0max (*coh_refl);
     *sum = 0;
-    for (i = 0; i < tau_count; i++) {
-      /* Assuming reflections are sorted, stop search when max tau exceeded. */
-      if (L[i].tau > tau_max)
-        break;
+    for (i = 0; i < count; i++) {
       /* Check if this reciprocal lattice point is close enough to the
          Ewald sphere to make scattering possible. */
-
       calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
       rho = calc_rho(rho_x, rho_y, rho_z);
       diff = fabs (rho - ki);
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
       if (diff <= L[i].cutoff) {
-	/* Store reflection. */
-        *idx = i;
-	
-        /* Get ki vector in local coordinates. */
-        kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
-        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
-        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
-
-	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
-		      kx,  ky,  kz, L[i].tau);
-        /* Compute the tangent plane of the Ewald sphere. */
-        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
-	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
-
-        /* Compute unit vectors b1 and b2 that span the tangent plane. */
-        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
-        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
-        /* Compute the 2D projection of the 3D Gauss of the reflection. */
-        /* The symmetric 2x2 matrix N describing the 2D gauss. */
-        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
-        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
-        /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
-        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
-        det_L = l11 * l22;
-        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
-
-        /* Factor alpha for the distance of the 2D Gauss from the origin. */
-        alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
-        refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
-      
-	*sum += refl;
+	*sum += calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
+	*idx = i;
       }
+
       if (*sum > r)
-        return(tau_count);
-    }
-    return (tau_count); // this is 'tau_count', i.e. number of reachable reflections
+	break;
+    } /* end for */
+
+    return (j); // this is 'tau_count', i.e. number of reachable reflections
   } /* end hkl_search */
 
   /* #pragma acc routine */
@@ -11806,24 +11781,24 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         hkl_info.type = type;
         #endif
       } else {
-        /* 7. Coherent scattering. Select reciprocal lattice point. */
+        /* 7. Coherent scattering. Select reciprocal lattice point. */	
         if (coh_refl <= 0) {
           ABSORB;
         }
-        /* sum = 0; */
-        /* j = hkl_select (T, tau_count, coh_refl, &sum, _particle); */
-        /* if (j >= tau_count) { */
-        /*   #if !defined(OPENACC) && !defined(_OPENMP) */
-        /*   if (hkl_info.flag_warning < 10) */
-        /*     fprintf (stderr, */
-        /*              "Single_crystal: Error: Illegal tau search " */
-        /*              "(sum=%g, j=%i, tau_count=%i).\n", */
-        /*              sum, j, tau_count); */
-        /*   hkl_info.flag_warning++; */
-        /*   #endif */
-        /*   j = tau_count - 1; */
-        /* } */
-        /* i = T[j].index; */
+	/* sum = 0; */
+	/* j = hkl_select (T, tau_count, coh_refl, &sum, _particle); */
+        if (j >= tau_count) {
+          #if !defined(OPENACC) && !defined(_OPENMP)
+          if (hkl_info.flag_warning < 10)
+            fprintf (stderr,
+                     "Single_crystal: Error: Illegal tau search "
+                     "(sum=%g, j=%i, tau_count=%i).\n",
+                     sum, j, tau_count);
+          hkl_info.flag_warning++;
+          #endif
+          j = tau_count - 1;
+        }
+        // i = T[j].index;
         /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
         z1 = randnorm ();
         z2 = randnorm ();
@@ -11864,9 +11839,9 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         kfy *= adjust;
         kfz *= adjust;
         /* Adjust neutron weight (see manual for explanation). */
-        /* double pmul = T[j].xsect * coh_refl / (coh_xsect * T[j].refl); */
-        /* if (!isnan (pmul)) */
-        /*   p *= pmul; */
+        double pmul = L[i].F2 * coh_refl / coh_xsect;
+        if (!isnan (pmul))
+          p *= pmul;
         vx = K2V * (L[i].u1x * kfx + L[i].u2x * kfy + L[i].u3x * kfz);
         vy = K2V * (L[i].u1y * kfx + L[i].u2y * kfy + L[i].u3y * kfz);
         vz = K2V * (L[i].u1z * kfx + L[i].u2z * kfy + L[i].u3z * kfz);
