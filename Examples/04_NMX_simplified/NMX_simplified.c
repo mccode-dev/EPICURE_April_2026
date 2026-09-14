@@ -33799,7 +33799,6 @@ _class_DivLambda_monitor *class_DivLambda_monitor_display(_class_DivLambda_monit
   printf("MCDISPLAY: component %s\n", _comp->_name);
   multiline (5, (double)xmin, (double)ymin, 0.0, (double)xmax, (double)ymin, 0.0, (double)xmax, (double)ymax, 0.0, (double)xmin, (double)ymax, 0.0, (double)xmin,
              (double)ymin, 0.0);
-  Monitor_nD_McDisplay (&DEFS, &Vars);
   
   #undef nL
   #undef nh
@@ -33988,7 +33987,6 @@ _class_Monitor_nD *class_Monitor_nD_display(_class_Monitor_nD *_comp
 
   printf("MCDISPLAY: component %s\n", _comp->_name);
   Monitor_nD_McDisplay (&DEFS, &Vars);
-
   #undef user0
   #undef user1
   #undef user2
