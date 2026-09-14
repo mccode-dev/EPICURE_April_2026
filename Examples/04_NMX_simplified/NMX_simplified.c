@@ -12824,6 +12824,7 @@ unsigned int mt_random_opencl(void) // Should be called by others
 
     return (info->count);
   } /* read_hkl_data */
+
   /* ------------------------------------------------------------------------ */
   /* hkl_search
     search the HKL reflections which are on the Ewald sphere
@@ -14081,24 +14082,6 @@ void Monitor_nD_Init(MonitornD_Defines_type *DEFS,
 	for (j = 0; j < Vars->Coord_Bin[2]; j++)
 	  { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; }
       }
-      /* Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Number)*sizeof(double *)); */
-      /* Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Number)*sizeof(double *)); */
-      /* Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Number)*sizeof(double *)); */
-      /* if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
-      /* { fprintf(stderr,"Monitor_nD: %s n1D cannot allocate Vars->Mon2D_N/p/p2 (%zi). Fatal.\n", Vars->compcurname, (Vars->Coord_Number)*sizeof(double *)); exit(-1); } */
-      /* for (i= 1; i <= Vars->Coord_Number; i++) */
-      /* { */
-      /*   Vars->Mon2D_N[i-1]  = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double)); */
-      /*   Vars->Mon2D_p[i-1]  = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double)); */
-      /*   Vars->Mon2D_p2[i-1] = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double)); */
-      /*   if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
-      /*   { fprintf(stderr,"Monitor_nD: %s n1D cannot allocate %s Vars->Mon2D_N/p/p2[%li] (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[i], i, (Vars->Coord_Bin[i])*sizeof(double *)); exit(-1); } */
-      /*   else */
-      /*   { */
-      /*     for (j=0; j < Vars->Coord_Bin[i]; j++ ) */
-      /*     { Vars->Mon2D_N[i-1][j] = (double)0; Vars->Mon2D_p[i-1][j] = (double)0; Vars->Mon2D_p2[i-1][j] = (double)0; } */
-      /*   } */
-      /* } */
     }
     else /* 2D case : Vars->Coord_Number==2 and !Vars->Flag_Multiple and !Vars->Flag_List */
     if ((Vars->Coord_NumberNoPixel == 2) && !Vars->Flag_Multiple)
@@ -14117,31 +14100,13 @@ void Monitor_nD_Init(MonitornD_Defines_type *DEFS,
 	for (j = 0; j < Vars->Coord_Bin[2]; j++)
 	  { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; }
       }
-      /* Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *)); */
-      /* Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *)); */
-      /* Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *)); */
-      /* if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
-      /* { fprintf(stderr,"Monitor_nD: %s 2D cannot allocate %s Vars->Mon2D_N/p/p2 (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[1], (Vars->Coord_Bin[1])*sizeof(double *)); exit(-1); } */
-      /* for (i= 0; i < Vars->Coord_Bin[1]; i++) */
-      /* { */
-      /*   Vars->Mon2D_N[i]  = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double)); */
-      /*   Vars->Mon2D_p[i]  = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double)); */
-      /*   Vars->Mon2D_p2[i] = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double)); */
-      /*   if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
-      /*   { fprintf(stderr,"Monitor_nD: %s 2D cannot allocate %s Vars->Mon2D_N/p/p2[%li] (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[1], i, (Vars->Coord_Bin[2])*sizeof(double *)); exit(-1); } */
-      /*   else */
-      /*   { */
-      /*     for (j=0; j < Vars->Coord_Bin[2]; j++ ) */
-      /*     { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; } */
-      /*   } */
-      /* } */
     }
     else {
       Vars->Mon2D_N = Vars->Mon2D_p = Vars->Mon2D_p2 = NULL;
     }
       /* no Mon2D allocated for
        * (Vars->Coord_Number != 2) && !Vars->Flag_Multiple && Vars->Flag_List */
-    
+
     Vars->psum  = 0;
     Vars->p2sum = 0;
     Vars->Nsum  = 0;
@@ -14824,13 +14789,13 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
         {
           if (Vars->Mon2D_N) {
 	    double p2 = pp*pp;
-	    int idx = i * Vars->Coord_Bin[2] + j;
+            int idx = i * Vars->Coord_Bin[2] + j;
             #pragma omp atomic
-	    Vars->Mon2D_N[0][idx] = Vars->Mon2D_N[0][idx]+1;
+            Vars->Mon2D_N[0][idx] = Vars->Mon2D_N[0][idx]+1;
             #pragma omp atomic
-	    Vars->Mon2D_p[0][idx] = Vars->Mon2D_p[0][idx]+pp;
+            Vars->Mon2D_p[0][idx] = Vars->Mon2D_p[0][idx]+pp;
             #pragma omp atomic
-	    Vars->Mon2D_p2[0][idx] = Vars->Mon2D_p2[0][idx] + p2;
+            Vars->Mon2D_p2[0][idx] = Vars->Mon2D_p2[0][idx] + p2;
 	  }
         } else {
           outsidebounds=1; 
@@ -14845,14 +14810,13 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
 	    idx = idx * Vars->Coord_Bin[i] + j;
             if  (Vars->Flag_Multiple && Vars->Mon2D_N) {
 	      if (Vars->Mon2D_N) {
-		double p2 = pp*pp;
-		// TODO Implement idx
+                double p2 = pp*pp;
                 #pragma omp atomic
-		Vars->Mon2D_N[0][idx] = Vars->Mon2D_N[0][idx]+1;
+                Vars->Mon2D_N[0][idx] = Vars->Mon2D_N[0][idx]+1;
                 #pragma omp atomic
-		Vars->Mon2D_p[0][idx] = Vars->Mon2D_p[0][idx]+pp;
-		#pragma omp atomic
-		Vars->Mon2D_p2[0][idx] = Vars->Mon2D_p2[0][idx] + p2;
+                Vars->Mon2D_p[0][idx] = Vars->Mon2D_p[0][idx]+pp;
+                #pragma omp atomic
+                Vars->Mon2D_p2[0][idx] = Vars->Mon2D_p2[0][idx] + p2;
 	      }
 	    }
           } else { 
@@ -14862,21 +14826,6 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
         }
       }
     } /* end (Vars->Flag_Auto_Limits != 1) */
-
-    // AI GEN
-    /* if (Vars->Flag_Auto_Limits != 2 && !outsidebounds) { */
-    /*   if (Vars->Flag_List || (Vars->Flag_Auto_Limits == 1)) { */
-    /* 	long myidx; */
-
-    /*     #pragma omp atomic capture */
-    /* 	{ myidx = Vars->Buffer_Counter; Vars->Buffer_Counter++; } */
-	
-    /* 	if (myidx < Vars->Buffer_Block) { */
-    /* 	  for (i = 0; i <= Vars->Coord_Number; i++) */
-    /* 	    Vars->Mon2D_Buffer[i + myidx*(Vars->Coord_Number+1)] = Coord[i]; */
-    /* 	} */
-    /*   } */
-    /* } */
     
     if (Vars->Flag_Auto_Limits != 2 && !outsidebounds) /* not when reading auto limits Buffer */
     { /* now store Coord into Buffer (no index needed) if necessary (list or auto limits) */
@@ -33850,6 +33799,8 @@ _class_DivLambda_monitor *class_DivLambda_monitor_display(_class_DivLambda_monit
   printf("MCDISPLAY: component %s\n", _comp->_name);
   multiline (5, (double)xmin, (double)ymin, 0.0, (double)xmax, (double)ymin, 0.0, (double)xmax, (double)ymax, 0.0, (double)xmin, (double)ymax, 0.0, (double)xmin,
              (double)ymin, 0.0);
+  Monitor_nD_McDisplay (&DEFS, &Vars);
+  
   #undef nL
   #undef nh
   #undef nowritefile
