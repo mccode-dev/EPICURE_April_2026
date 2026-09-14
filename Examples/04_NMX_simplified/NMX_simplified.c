@@ -60,8 +60,8 @@ struct _struct_particle {
   double vx,vy,vz; /* velocity [m/s] */
   double sx,sy,sz; /* spin [0-1] */
   int mcgravitation; /* gravity-state */
-  void *mcMagnet;    /* precession-state */
   int allow_backprop; /* allow backprop */
+  void *mcMagnet;    /* precession-state */
   /* Generic Temporaries: */
   /* May be used internally by components e.g. for special */
   /* return-values from functions used in trace, thusreturned via */
@@ -7021,6 +7021,7 @@ struct _instrument_struct {
   int SPLITS;
   struct instrument_logic_struct logic; /* instrument logic */
 } _instrument_var;
+#pragma omp declare target link(_instrument_var)
 struct _instrument_struct *instrument = & _instrument_var;
 
 int numipar = 32;
@@ -10223,6 +10224,8 @@ typedef struct polygon {
   double D;
 } polygon;
 
+#pragma omp declare mapper(polygon_mapper: polygon v) map(v, v.p[0:v.npol])
+
 typedef struct off_struct {
     long vtxSize;
     long polySize;
@@ -11206,7 +11209,7 @@ long off_init(  char *offfile, double xwidth, double yheight, double zdepth,
   data->polySize   = polySize;
   data->faceSize   = faceSize;
   data->filename   = offfile;
-  #if defined(OPENACC) || defined(_OPENMP)
+  #if defined(OPENACC)
   acc_attach((void *)&vtxArray);
   acc_attach((void *)&normalArray);
   acc_attach((void *)&faceArray);
@@ -12199,17 +12202,17 @@ unsigned int mt_random_opencl(void) // Should be called by others
   };
 
   struct tau_data {
-    int index; /* Index into reflection table */
-    double refl;
-    double xsect;
-    /* The following vectors are in local koordinates. */
-    double rho_x, rho_y, rho_z; /* The vector ki - tau */
-    double rho;                 /* Length of rho vector */
-    double ox, oy, oz;          /* Origin of Ewald sphere tangent plane */
-    double b1x, b1y, b1z;       /* Spanning vectors of Ewald sphere tangent */
-    double b2x, b2y, b2z;
-    double l11, l12, l22; /* Cholesky decomposition L of 2D Gauss */
-    double y0x, y0y;      /* 2D Gauss center in tangent plane */
+    /* int index; /\* Index into reflection table *\/ */
+    /* double refl; */
+    /* double xsect; */
+    /* /\* The following vectors are in local koordinates. *\/ */
+    /* double rho_x, rho_y, rho_z; /\* The vector ki - tau *\/ */
+    /* double rho;                 /\* Length of rho vector *\/ */
+    /* double ox, oy, oz;          /\* Origin of Ewald sphere tangent plane *\/ */
+    /* double b1x, b1y, b1z;       /\* Spanning vectors of Ewald sphere tangent *\/ */
+    /* double b2x, b2y, b2z; */
+    /* double l11, l12, l22; /\* Cholesky decomposition L of 2D Gauss *\/ */
+    /* double y0x, y0y;      /\* 2D Gauss center in tangent plane *\/ */
   };
 
   struct hkl_info_struct {
@@ -12821,7 +12824,6 @@ unsigned int mt_random_opencl(void) // Should be called by others
 
     return (info->count);
   } /* read_hkl_data */
-
   /* ------------------------------------------------------------------------ */
   /* hkl_search
     search the HKL reflections which are on the Ewald sphere
@@ -12831,20 +12833,125 @@ unsigned int mt_random_opencl(void) // Should be called by others
     this function returns:
       tau_count (return), coh_refl, coh_xsect, T (updated elements in the array up to [j])
    */
+
+void calc_rho_xyz(double *rho_x, double *rho_y, double *rho_z,
+		  double kix, double kiy, double kiz,
+		  double tau_x, double tau_y, double tau_z) {
+  *rho_x = kix - tau_x;
+  *rho_y = kiy - tau_y;
+  *rho_z = kiz - tau_z;
+}
+
+void calc_rhoj_xyz(double *rhoj_x, double *rhoj_y, double *rhoj_z,
+		   double kx, double ky, double kz, double tau) {
+  *rhoj_x = kx - tau;
+  *rhoj_y = ky;
+  *rhoj_z = kz;
+}
+ 
+double calc_rho(double rho_x, double rho_y, double rho_z) {
+  double rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+  return rho;
+}
+
+void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, double rho_z) {
+  double rho = calc_rho(rho_x, rho_y, rho_z);
+  *nx = rho_x / rho;
+  *ny = rho_y / rho;
+  *nz = rho_z / rho;
+}
+
+void calc_nxx(double* n11, double* n12, double* n22, double m1, double m2, double m3,
+	      double b1x, double b1y, double b1z, double b2x, double b2y, double b2z) {
+  *n11 = m1 * b1x * b1x + m2 * b1y * b1y + m3 * b1z * b1z;
+  *n12 = m1 * b1x * b2x + m2 * b1y * b2y + m3 * b1z * b2z;
+  *n22 = m1 * b2x * b2x + m2 * b2y * b2y + m3 * b2z * b2z;
+}
+
+void calc_inv_nxx(double* inv_n11, double* inv_n12, double* inv_n22,
+		  double n11, double n12, double n22) {
+  /* The (symmetric) inverse matrix of N. */
+  double det_N = n11 * n22 - n12 * n12;
+  *inv_n11 = n22 / det_N;
+  *inv_n12 = -n12 / det_N;
+  *inv_n22 = n11 / det_N;
+}
+
+void calc_lxx(double* l11, double* l12, double* l22,
+	      double inv_n11, double inv_n12, double inv_n22) {
+  *l11 = sqrt (inv_n11 / 2);
+  *l12 = inv_n12 / (2 * *l11);
+
+  *l22 = sqrt (inv_n22 / 2 - *l12 * *l12);
+}
+
+void calc_y0(double* y0x, double* y0y,
+	     double b1x, double b1y, double b1z,
+	     double b2x, double b2y, double b2z,
+	     double ox, double oy, double oz,
+	     double m1, double m2, double m3,
+	     double inv_n11, double inv_n12, double inv_n22) {
+  /* The product B^T D o. */
+  double Bt_D_O_x = b1x * m1 * ox + b1y * m2 * oy + b1z * m3 * oz;
+  double Bt_D_O_y = b2x * m1 * ox + b2y * m2 * oy + b2z * m3 * oz;
+  /* Center of 2D Gauss in plane coordinates. */
+  *y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
+  *y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
+}
+
+void calc_o_xyz(double* ox, double* oy, double* oz,
+		double ki, double rho, double nx, double ny, double nz) {
+  *ox = (ki - rho) * nx;
+  *oy = (ki - rho) * ny;
+  *oz = (ki - rho) * nz;
+}
+
+double calc_refl(struct hkl_data* L, int i, double xsect_factor, double rho, double kix, double kiy, double kiz, double ki) {
+  double rhoj_x, rhoj_y, rhoj_z;
+  double ox, oy, oz;
+  double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
+  double n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
+  double y0x, y0y, alpha;
+
+  /* Get ki vector in local coordinates. */
+  kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+  ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+  kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+
+  calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z,
+		kx,  ky,  kz, L[i].tau);
+  /* Compute the tangent plane of the Ewald sphere. */
+  calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+  calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+
+  /* Compute unit vectors b1 and b2 that span the tangent plane. */
+  normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+  vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+  /* Compute the 2D projection of the 3D Gauss of the reflection. */
+  /* The symmetric 2x2 matrix N describing the 2D gauss. */
+  calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+  calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+  /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
+  calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+  det_L = l11 * l22;
+  calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+  /* Factor alpha for the distance of the 2D Gauss from the origin. */
+  alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
+  return xsect_factor * det_L * exp (-alpha) / L[i].sig123;
+}
+
   #pragma acc routine
   int
-  hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect) {
+  hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect, double* sum, int* idx, _class_particle* _particle) {
     double rho, rho_x, rho_y, rho_z;
     double diff;
     int i, j;
-    double ox, oy, oz;
-    double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
-    double n11, n22, n12, det_N, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
-    double Bt_D_O_x, Bt_D_O_y, y0x, y0y, alpha;
 
     double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
     int jglobal = -1;
     double coherent_refl, coherent_xsect;
+    double refl;
 
     struct tau_data* T = (struct tau_data*)TT;
 
@@ -12862,98 +12969,42 @@ unsigned int mt_random_opencl(void) // Should be called by others
         break;
       /* Check if this reciprocal lattice point is close enough to the
          Ewald sphere to make scattering possible. */
-      rho_x = kix - L[i].tau_x;
-      rho_y = kiy - L[i].tau_y;
-      rho_z = kiz - L[i].tau_z;
-      rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+
+      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+      rho = calc_rho(rho_x, rho_y, rho_z);
       diff = fabs (rho - ki);
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
       if (diff <= L[i].cutoff) {
-        /* Store reflection. */
-        T[j].index = i;
-        /* Get ki vector in local coordinates. */
-        kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
-        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
-        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
-        T[j].rho_x = kx - L[i].tau;
-        T[j].rho_y = ky;
-        T[j].rho_z = kz;
-        T[j].rho = rho;
-        /* Compute the tangent plane of the Ewald sphere. */
-        nx = T[j].rho_x / T[j].rho;
-        ny = T[j].rho_y / T[j].rho;
-        nz = T[j].rho_z / T[j].rho;
-        ox = (ki - T[j].rho) * nx;
-        oy = (ki - T[j].rho) * ny;
-        oz = (ki - T[j].rho) * nz;
-        T[j].ox = ox;
-        T[j].oy = oy;
-        T[j].oz = oz;
-        /* Compute unit vectors b1 and b2 that span the tangent plane. */
-        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
-        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
-        T[j].b1x = b1x;
-        T[j].b1y = b1y;
-        T[j].b1z = b1z;
-        T[j].b2x = b2x;
-        T[j].b2y = b2y;
-        T[j].b2z = b2z;
-        /* Compute the 2D projection of the 3D Gauss of the reflection. */
-        /* The symmetric 2x2 matrix N describing the 2D gauss. */
-        n11 = L[i].m1 * b1x * b1x + L[i].m2 * b1y * b1y + L[i].m3 * b1z * b1z;
-        n12 = L[i].m1 * b1x * b2x + L[i].m2 * b1y * b2y + L[i].m3 * b1z * b2z;
-        n22 = L[i].m1 * b2x * b2x + L[i].m2 * b2y * b2y + L[i].m3 * b2z * b2z;
-        /* The (symmetric) inverse matrix of N. */
-        det_N = n11 * n22 - n12 * n12;
-        inv_n11 = n22 / det_N;
-        inv_n12 = -n12 / det_N;
-        inv_n22 = n11 / det_N;
-        /* The Cholesky decomposition of 1/2*inv_n (lower triangular L). */
-        l11 = sqrt (inv_n11 / 2);
-        l12 = inv_n12 / (2 * l11);
-        l22 = sqrt (inv_n22 / 2 - l12 * l12);
-        T[j].l11 = l11;
-        T[j].l12 = l12;
-        T[j].l22 = l22;
-        det_L = l11 * l22;
-        /* The product B^T D o. */
-        Bt_D_O_x = b1x * L[i].m1 * ox + b1y * L[i].m2 * oy + b1z * L[i].m3 * oz;
-        Bt_D_O_y = b2x * L[i].m1 * ox + b2y * L[i].m2 * oy + b2z * L[i].m3 * oz;
-        /* Center of 2D Gauss in plane coordinates. */
-        y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
-        y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
-        T[j].y0x = y0x;
-        T[j].y0y = y0y;
-        /* Factor alpha for the distance of the 2D Gauss from the origin. */
-        alpha = L[i].m1 * ox * ox + L[i].m2 * oy * oy + L[i].m3 * oz * oz - (y0x * y0x * n11 + y0y * y0y * n22 + 2 * y0x * y0y * n12);
-        T[j].refl = xsect_factor * det_L * exp (-alpha) / L[i].sig123; /* intensity of that Bragg */
-        *coh_refl += T[j].refl;                                        /* total scatterable intensity*/
-        T[j].xsect = T[j].refl * L[i].F2;
-        *coh_xsect += T[j].xsect;
+        refl = calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
+        *coh_refl += refl;                                        /* total scatterable intensity*/
+        *coh_xsect += refl * L[i].F2;
         j++;
       }
-      /*protect against tau shortlist buffer overrrun*/
-      if (j == MCSX_REFL_SLIST_SIZE) {
-        break;
-      }
     } /* end for */
+
+    rho = 0, rho_x = 0, rho_y = 0, rho_z = 0;
+    double r = rand0max (*coh_refl);
+    *sum = 0;
+    for (i = 0; i < count; i++) {
+      /* Check if this reciprocal lattice point is close enough to the
+         Ewald sphere to make scattering possible. */
+      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+      rho = calc_rho(rho_x, rho_y, rho_z);
+      diff = fabs (rho - ki);
+
+      /* Check if scattering is possible (cutoff of Gaussian tails). */
+      if (diff <= L[i].cutoff) {
+	*sum += calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
+	*idx = i;
+      }
+
+      if (*sum > r)
+	break;
+    } /* end for */
+
     return (j); // this is 'tau_count', i.e. number of reachable reflections
   } /* end hkl_search */
-
-  #pragma acc routine
-  int
-  hkl_select (struct tau_data* T, int tau_count, double coh_refl, double* sum, _class_particle* _particle) {
-    int j;
-    double r = rand0max (coh_refl);
-    *sum = 0;
-    for (j = 0; j < tau_count; j++) {
-      *sum += T[j].refl;
-      if (*sum > r)
-        break;
-    }
-    return j;
-  }
 
   /* Functions for "reorientation", powder and PG modes */
   /* Powder, forward */
@@ -13223,6 +13274,7 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double **Mon2D_p2;
     double *Mon2D_Buffer;
     unsigned long PixelID;
+    int Mon2D_Dim;
 
     double mxmin,mxmax,mymin,mymax,mzmin,mzmax;
     double mean_dx, mean_dy, min_x, min_y, max_x, max_y, mean_p;
@@ -14001,7 +14053,8 @@ void Monitor_nD_Init(MonitornD_Defines_type *DEFS,
      */
     if ((Vars->Flag_Auto_Limits || Vars->Flag_List) && Vars->Coord_Number)
     { /* Dim : (Vars->Coord_Number+1)*Vars->Buffer_Block matrix (for p, dp) */
-      Vars->Mon2D_Buffer = (double *)malloc((Vars->Coord_Number+1)*Vars->Buffer_Block*sizeof(double));
+      Vars->Mon2D_Dim = (Vars->Coord_Number+1)*Vars->Buffer_Block;
+      Vars->Mon2D_Buffer = (double *)malloc(Vars->Mon2D_Dim*sizeof(double));
       if (Vars->Mon2D_Buffer == NULL)
       { printf("Monitor_nD: %s cannot allocate Vars->Mon2D_Buffer (%zi). No list and auto limits.\n", Vars->compcurname, Vars->Buffer_Block*(Vars->Coord_Number+1)*sizeof(double)); Vars->Flag_List = 0; Vars->Flag_Auto_Limits = 0; }
       else
@@ -14014,53 +14067,81 @@ void Monitor_nD_Init(MonitornD_Defines_type *DEFS,
     /* 1D and n1D case : Vars->Flag_Multiple */
     if (Vars->Flag_Multiple && Vars->Coord_NumberNoPixel)
     { /* Dim : Vars->Coord_Number*Vars->Coord_Bin[i] vectors */
-      Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Number)*sizeof(double *));
-      Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Number)*sizeof(double *));
-      Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Number)*sizeof(double *));
-      if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL))
-      { fprintf(stderr,"Monitor_nD: %s n1D cannot allocate Vars->Mon2D_N/p/p2 (%zi). Fatal.\n", Vars->compcurname, (Vars->Coord_Number)*sizeof(double *)); exit(-1); }
-      for (i= 1; i <= Vars->Coord_Number; i++)
-      {
-        Vars->Mon2D_N[i-1]  = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double));
-        Vars->Mon2D_p[i-1]  = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double));
-        Vars->Mon2D_p2[i-1] = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double));
-        if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL))
-        { fprintf(stderr,"Monitor_nD: %s n1D cannot allocate %s Vars->Mon2D_N/p/p2[%li] (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[i], i, (Vars->Coord_Bin[i])*sizeof(double *)); exit(-1); }
-        else
-        {
-          for (j=0; j < Vars->Coord_Bin[i]; j++ )
-          { Vars->Mon2D_N[i-1][j] = (double)0; Vars->Mon2D_p[i-1][j] = (double)0; Vars->Mon2D_p2[i-1][j] = (double)0; }
-        }
+      Vars->Mon2D_Dim = Vars->Coord_Number*Vars->Coord_Bin[i];
+      double *data_N = malloc(Vars->Mon2D_Dim * sizeof(double));
+      double *data_p = malloc(Vars->Mon2D_Dim * sizeof(double));
+      double *data_p2 = malloc(Vars->Mon2D_Dim * sizeof(double));
+      Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *));
+      Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *));
+      Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *));
+      for (i = 0; i < Vars->Coord_Bin[1]; i++) {
+	Vars->Mon2D_N[i] = data_N + i * Vars->Coord_Bin[2];
+	Vars->Mon2D_p[i] = data_p + i * Vars->Coord_Bin[2];
+	Vars->Mon2D_p2[i] = data_p2 + i * Vars->Coord_Bin[2];
+	for (j = 0; j < Vars->Coord_Bin[2]; j++)
+	  { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; }
       }
+      /* Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Number)*sizeof(double *)); */
+      /* Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Number)*sizeof(double *)); */
+      /* Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Number)*sizeof(double *)); */
+      /* if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
+      /* { fprintf(stderr,"Monitor_nD: %s n1D cannot allocate Vars->Mon2D_N/p/p2 (%zi). Fatal.\n", Vars->compcurname, (Vars->Coord_Number)*sizeof(double *)); exit(-1); } */
+      /* for (i= 1; i <= Vars->Coord_Number; i++) */
+      /* { */
+      /*   Vars->Mon2D_N[i-1]  = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double)); */
+      /*   Vars->Mon2D_p[i-1]  = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double)); */
+      /*   Vars->Mon2D_p2[i-1] = (double *)malloc(Vars->Coord_Bin[i]*sizeof(double)); */
+      /*   if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
+      /*   { fprintf(stderr,"Monitor_nD: %s n1D cannot allocate %s Vars->Mon2D_N/p/p2[%li] (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[i], i, (Vars->Coord_Bin[i])*sizeof(double *)); exit(-1); } */
+      /*   else */
+      /*   { */
+      /*     for (j=0; j < Vars->Coord_Bin[i]; j++ ) */
+      /*     { Vars->Mon2D_N[i-1][j] = (double)0; Vars->Mon2D_p[i-1][j] = (double)0; Vars->Mon2D_p2[i-1][j] = (double)0; } */
+      /*   } */
+      /* } */
     }
     else /* 2D case : Vars->Coord_Number==2 and !Vars->Flag_Multiple and !Vars->Flag_List */
     if ((Vars->Coord_NumberNoPixel == 2) && !Vars->Flag_Multiple)
     { /* Dim : Vars->Coord_Bin[1]*Vars->Coord_Bin[2] matrix */
+      Vars->Mon2D_Dim = Vars->Coord_Bin[1]*Vars->Coord_Bin[2];
+      double *data_N = malloc(Vars->Mon2D_Dim * sizeof(double));
+      double *data_p = malloc(Vars->Mon2D_Dim * sizeof(double));
+      double *data_p2 = malloc(Vars->Mon2D_Dim * sizeof(double));
       Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *));
       Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *));
       Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *));
-      if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL))
-      { fprintf(stderr,"Monitor_nD: %s 2D cannot allocate %s Vars->Mon2D_N/p/p2 (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[1], (Vars->Coord_Bin[1])*sizeof(double *)); exit(-1); }
-      for (i= 0; i < Vars->Coord_Bin[1]; i++)
-      {
-        Vars->Mon2D_N[i]  = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double));
-        Vars->Mon2D_p[i]  = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double));
-        Vars->Mon2D_p2[i] = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double));
-        if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL))
-        { fprintf(stderr,"Monitor_nD: %s 2D cannot allocate %s Vars->Mon2D_N/p/p2[%li] (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[1], i, (Vars->Coord_Bin[2])*sizeof(double *)); exit(-1); }
-        else
-        {
-          for (j=0; j < Vars->Coord_Bin[2]; j++ )
-          { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; }
-        }
+      for (i = 0; i < Vars->Coord_Bin[1]; i++) {
+	Vars->Mon2D_N[i] = data_N + i * Vars->Coord_Bin[2];
+	Vars->Mon2D_p[i] = data_p + i * Vars->Coord_Bin[2];
+	Vars->Mon2D_p2[i] = data_p2 + i * Vars->Coord_Bin[2];
+	for (j = 0; j < Vars->Coord_Bin[2]; j++)
+	  { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; }
       }
+      /* Vars->Mon2D_N  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *)); */
+      /* Vars->Mon2D_p  = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *)); */
+      /* Vars->Mon2D_p2 = (double **)malloc((Vars->Coord_Bin[1])*sizeof(double *)); */
+      /* if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
+      /* { fprintf(stderr,"Monitor_nD: %s 2D cannot allocate %s Vars->Mon2D_N/p/p2 (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[1], (Vars->Coord_Bin[1])*sizeof(double *)); exit(-1); } */
+      /* for (i= 0; i < Vars->Coord_Bin[1]; i++) */
+      /* { */
+      /*   Vars->Mon2D_N[i]  = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double)); */
+      /*   Vars->Mon2D_p[i]  = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double)); */
+      /*   Vars->Mon2D_p2[i] = (double *)malloc(Vars->Coord_Bin[2]*sizeof(double)); */
+      /*   if ((Vars->Mon2D_N == NULL) || (Vars->Mon2D_p == NULL) || (Vars->Mon2D_p2 == NULL)) */
+      /*   { fprintf(stderr,"Monitor_nD: %s 2D cannot allocate %s Vars->Mon2D_N/p/p2[%li] (%zi). Fatal.\n", Vars->compcurname, Vars->Coord_Var[1], i, (Vars->Coord_Bin[2])*sizeof(double *)); exit(-1); } */
+      /*   else */
+      /*   { */
+      /*     for (j=0; j < Vars->Coord_Bin[2]; j++ ) */
+      /*     { Vars->Mon2D_N[i][j] = (double)0; Vars->Mon2D_p[i][j] = (double)0; Vars->Mon2D_p2[i][j] = (double)0; } */
+      /*   } */
+      /* } */
     }
     else {
       Vars->Mon2D_N = Vars->Mon2D_p = Vars->Mon2D_p2 = NULL;
     }
       /* no Mon2D allocated for
        * (Vars->Coord_Number != 2) && !Vars->Flag_Multiple && Vars->Flag_List */
-
+    
     Vars->psum  = 0;
     Vars->p2sum = 0;
     Vars->Nsum  = 0;
@@ -14513,32 +14594,32 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
       v=sqrt(_particle->vx*_particle->vx + _particle->vy*_particle->vy + _particle->vz*_particle->vz);
       tmp=_particle->x;
       if (Vars->min_x > _particle->x){
-        #pragma acc atomic write
+        #pragma omp atomic write
         Vars->min_x = tmp;
       }
       if (Vars->max_x < _particle->x){
-        #pragma acc atomic write
+        #pragma omp atomic write
         Vars->max_x = tmp;
       }
       tmp=_particle->y;
       if (Vars->min_y > _particle->y){
-        #pragma acc atomic write
+        #pragma omp atomic write
         Vars->min_y = tmp;
       }
       if (Vars->max_y < _particle->y){
 	tmp=_particle->y;
-        #pragma acc atomic write
+        #pragma omp atomic write
 	Vars->max_y = tmp;
       }
 
-      #pragma acc atomic
+      #pragma omp atomic
       Vars->mean_p = Vars->mean_p + _particle->p;
       if (v) {
         tmp=_particle->p*fabs(_particle->vx/v);
-        #pragma acc atomic
+        #pragma omp atomic
         Vars->mean_dx = Vars->mean_dx + tmp; //_particle->p*fabs(_particle->vx/v);
         tmp=_particle->p*fabs(_particle->vy/v);
-        #pragma acc atomic
+        #pragma omp atomic
         Vars->mean_dy = Vars->mean_dy + tmp; //_particle->p*fabs(_particle->vy/v);
       }
 
@@ -14743,12 +14824,13 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
         {
           if (Vars->Mon2D_N) {
 	    double p2 = pp*pp;
-            #pragma acc atomic
-	    Vars->Mon2D_N[i][j] = Vars->Mon2D_N[i][j]+1;
-            #pragma acc atomic
-	    Vars->Mon2D_p[i][j] = Vars->Mon2D_p[i][j]+pp;
-            #pragma acc atomic
-	    Vars->Mon2D_p2[i][j] = Vars->Mon2D_p2[i][j] + p2;
+	    int idx = i * Vars->Coord_Bin[2] + j;
+            #pragma omp atomic
+	    Vars->Mon2D_N[0][idx] = Vars->Mon2D_N[0][idx]+1;
+            #pragma omp atomic
+	    Vars->Mon2D_p[0][idx] = Vars->Mon2D_p[0][idx]+pp;
+            #pragma omp atomic
+	    Vars->Mon2D_p2[0][idx] = Vars->Mon2D_p2[0][idx] + p2;
 	  }
         } else {
           outsidebounds=1; 
@@ -14756,19 +14838,21 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
       } else {
         /* 1D and n1D case : Vars->Flag_Multiple */
         /* Dim : Vars->Coord_Number*Vars->Coord_Bin[i] vectors (intensity is not included) */
-          
+        int idx = 0;
         for (i= 1; i <= Vars->Coord_Number; i++) {
           j = Coord_Index[i];
           if (j >= 0 && j < Vars->Coord_Bin[i]) {
+	    idx = idx * Vars->Coord_Bin[i] + j;
             if  (Vars->Flag_Multiple && Vars->Mon2D_N) {
 	      if (Vars->Mon2D_N) {
 		double p2 = pp*pp;
-                #pragma acc atomic
-		Vars->Mon2D_N[i-1][j] = Vars->Mon2D_N[i-1][j]+1;
-                #pragma acc atomic
-		Vars->Mon2D_p[i-1][j] = Vars->Mon2D_p[i-1][j]+pp;
-		#pragma acc atomic
-		Vars->Mon2D_p2[i-1][j] = Vars->Mon2D_p2[i-1][j] + p2;
+		// TODO Implement idx
+                #pragma omp atomic
+		Vars->Mon2D_N[0][idx] = Vars->Mon2D_N[0][idx]+1;
+                #pragma omp atomic
+		Vars->Mon2D_p[0][idx] = Vars->Mon2D_p[0][idx]+pp;
+		#pragma omp atomic
+		Vars->Mon2D_p2[0][idx] = Vars->Mon2D_p2[0][idx] + p2;
 	      }
 	    }
           } else { 
@@ -14778,6 +14862,21 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
         }
       }
     } /* end (Vars->Flag_Auto_Limits != 1) */
+
+    // AI GEN
+    /* if (Vars->Flag_Auto_Limits != 2 && !outsidebounds) { */
+    /*   if (Vars->Flag_List || (Vars->Flag_Auto_Limits == 1)) { */
+    /* 	long myidx; */
+
+    /*     #pragma omp atomic capture */
+    /* 	{ myidx = Vars->Buffer_Counter; Vars->Buffer_Counter++; } */
+	
+    /* 	if (myidx < Vars->Buffer_Block) { */
+    /* 	  for (i = 0; i <= Vars->Coord_Number; i++) */
+    /* 	    Vars->Mon2D_Buffer[i + myidx*(Vars->Coord_Number+1)] = Coord[i]; */
+    /* 	} */
+    /*   } */
+    /* } */
     
     if (Vars->Flag_Auto_Limits != 2 && !outsidebounds) /* not when reading auto limits Buffer */
     { /* now store Coord into Buffer (no index needed) if necessary (list or auto limits) */
@@ -14786,22 +14885,22 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
         for (i = 0; i <= Vars->Coord_Number; i++)
         {
 	  // This is is where the list is appended. How to make this "atomic"?
-          #pragma acc atomic write 
+          #pragma omp atomic write
           Vars->Mon2D_Buffer[i + Vars->Buffer_Counter*(Vars->Coord_Number+1)] = Coord[i];
         }
-	    #pragma acc atomic update
+	    #pragma omp atomic update
         Vars->Buffer_Counter = Vars->Buffer_Counter + 1;
-        if (Vars->Flag_Verbose && (Vars->Buffer_Counter >= Vars->Buffer_Block) && (Vars->Flag_List == 1)) 
+        if (Vars->Flag_Verbose && (Vars->Buffer_Counter >= Vars->Buffer_Block) && (Vars->Flag_List == 1))
           printf("Monitor_nD: %s %li neutrons stored in List.\n", Vars->compcurname, Vars->Buffer_Counter);
       }
     } /* end (Vars->Flag_Auto_Limits != 2) */
     
   } /* end while */
-  #pragma acc atomic
+  #pragma omp atomic
   Vars->Nsum = Vars->Nsum + 1;
-  #pragma acc atomic
+  #pragma omp atomic
   Vars->psum  = Vars->psum + pp;
-  #pragma acc atomic
+  #pragma omp atomic
   Vars->p2sum = Vars->p2sum + pp*pp;
 
   /*determine return value: 1:neutron was in bounds and measured, -1: outside bounds, 0: outside bounds, should be absorbed.*/
@@ -14815,7 +14914,7 @@ int Monitor_nD_Trace(MonitornD_Defines_type *DEFS, MonitornD_Variables_type *Var
    /* For the OPENACC list buffer an atomic capture/update of the
       updated Neutron_counter - updated below under list mode 
 	  Only need to be updated when inside bounds. */
-   #pragma acc atomic update
+   #pragma omp atomic update
    Vars->Neutron_Counter++;
   }
   return 1;
@@ -15231,7 +15330,7 @@ void Monitor_nD_Finally(MonitornD_Defines_type *DEFS,
   MonitornD_Variables_type *Vars)
   {
     int i;
-
+    
     /* Now Free memory Mon2D.. */
     if ((Vars->Flag_Auto_Limits || Vars->Flag_List) && Vars->Coord_Number)
     { /* Dim : (Vars->Coord_Number+1)*Vars->Buffer_Block matrix (for p, dp) */
@@ -15241,12 +15340,15 @@ void Monitor_nD_Finally(MonitornD_Defines_type *DEFS,
     /* 1D and n1D case : Vars->Flag_Multiple */
     if (Vars->Flag_Multiple && Vars->Coord_Number)
     { /* Dim : Vars->Coord_Number*Vars->Coord_Bin[i] vectors */
-      for (i= 0; i < Vars->Coord_Number; i++)
-      {
-        free(Vars->Mon2D_N[i]);
-        free(Vars->Mon2D_p[i]);
-        free(Vars->Mon2D_p2[i]);
-      }
+      /* for (i= 0; i < Vars->Coord_Number; i++) */
+      /* { */
+      /*   free(Vars->Mon2D_N[i]); */
+      /*   free(Vars->Mon2D_p[i]); */
+      /*   free(Vars->Mon2D_p2[i]); */
+      /* } */
+      free(Vars->Mon2D_N[0]);
+      free(Vars->Mon2D_p[0]);
+      free(Vars->Mon2D_p2[0]);
       free(Vars->Mon2D_N);
       free(Vars->Mon2D_p);
       free(Vars->Mon2D_p2);
@@ -15256,16 +15358,20 @@ void Monitor_nD_Finally(MonitornD_Defines_type *DEFS,
     /* 2D case : Vars->Coord_Number==2 and !Vars->Flag_Multiple and !Vars->Flag_List */
     if ((Vars->Coord_NumberNoPixel == 2) && !Vars->Flag_Multiple)
     { /* Dim : Vars->Coord_Bin[1]*Vars->Coord_Bin[2] matrix */
-      for (i= 0; i < Vars->Coord_Bin[1]; i++)
-      {
-        free(Vars->Mon2D_N[i]);
-        free(Vars->Mon2D_p[i]);
-        free(Vars->Mon2D_p2[i]);
-      }
+      /* for (i= 0; i < Vars->Coord_Bin[1]; i++) */
+      /* { */
+      /*   free(Vars->Mon2D_N[i]); */
+      /*   free(Vars->Mon2D_p[i]); */
+      /*   free(Vars->Mon2D_p2[i]); */
+      /* } */
+      free(Vars->Mon2D_N[0]);
+      free(Vars->Mon2D_p[0]);
+      free(Vars->Mon2D_p2[0]);
       free(Vars->Mon2D_N);
       free(Vars->Mon2D_p);
       free(Vars->Mon2D_p2);
     }
+
   } /* end Monitor_nD_Finally */
 
 /* ========================================================================= */
@@ -16131,7 +16237,7 @@ struct _struct_Single_crystal {
   MCNUM deltak;
   /* Component type 'Single_crystal' private parameters */
   struct hkl_info_struct  hkl_info;
-  off_struct  offdata;
+  // off_struct  offdata;
   struct hkl_data*  hkl_list;
   struct tau_data  tau_list[MCSX_REFL_SLIST_SIZE];
 };
@@ -16194,7 +16300,7 @@ struct _struct_Monitor_nD {
   MonitornD_Defines_type  DEFS;
   MonitornD_Variables_type  Vars;
   MCDETECTOR  detector;
-  off_struct  offdata;
+  // off_struct  offdata;
 };
 typedef struct _struct_Monitor_nD _class_Monitor_nD;
 _class_Monitor_nD _nD_Mantid_0_var;
@@ -16204,6 +16310,8 @@ _class_Monitor_nD _nD_Mantid_1_var;
 _class_Monitor_nD _nD_Mantid_2_var;
 
 _class_Monitor_nD _Structure_var;
+
+#pragma omp declare target link(_Origin_var, _Source_var, _PortOrig_var, _sourceMantid_var, _MonolithGuide_var, _armCurvedGuide_var, _CurvedGuide1_var, _CurvedGuide2_var, _CurvedGuide3_var, _CurvedGuide4_var, _CurvedGuide5_var, _CurvedGuide6_var, _CurvedGuide7_var, _CurvedGuide8_var,_CurvedGuide9_var, _CurvedGuide10_var,_CurvedGuide11_var, _CurvedGuide12_var, _CurvedGuide13_var,_CurvedGuide14_var, _CurvedGuide15_var, _CurvedGuide16_var, _CurvedGuide17_var, _CurvedGuide18_var, _CurvedGuide19_var, _CurvedGuide20_var, _CurvedGuide21_var, _CurvedGuide22_var, _CurvedGuide23_var, _CurvedGuide24_var, _CurvedGuide25_var, _CurvedGuide26_var, _CurvedGuide27_var, _CurvedGuide28_var, _CurvedGuide29_var, _CurvedGuide30_var, _CurvedGuide31_var, _CurvedGuide32_var, _CurvedGuide33_var, _CurvedGuide34_var, _CurvedGuide35_var, _CurvedGuide36_var, _CurvedGuide37_var, _armEndCurved_var, _StraightSegment_var, _armSecondaryShutter_1_var, _Chopper1_var, _armEndChopper1_var, _NeutronGuide5_2_var, _armChopper2_var, _Chopper2A_pos_var, _Chopper2A_var, _Chopper2B_pos_var, _Chopper2B_var, _armEndChopper2_var, _NeutronGuide7_var, _armEndStraight2_var, _armStartFocusing_var, _EllipticGuide_var, _armEndFocusing_var, _start_backend_var, _Slit_1_var, _Scraper_1_var, _Scraper_2_var, _Scraper_3_var, _Slit_2_var, _PinholeCollimator_var, _sample_position_var, _arm_Detector_2_direction_var, _arm_Detector_2_var, _arm_Detector_1_direction_var, _arm_Detector_1_var, _arm_Detector_0_direction_var, _arm_Detector_0_var, _sampleMantid_var, _psdSample_var, _divAtSample_var, _divAtSampleOverview_var, _toflSample_var, _divlSample_var, _Slit_secondary_shutter_1_1_var, _Xtal_var, _nD_Mantid_0_var, _nD_Mantid_1_var, _nD_Mantid_2_var, _Structure_var)
 
 int mcNUMCOMP = 87;
 
@@ -25902,7 +26010,7 @@ _class_Single_crystal *class_Single_crystal_init(_class_Single_crystal *_comp
   #define PG (_comp->PG)
   #define deltak (_comp->deltak)
   #define hkl_info (_comp->hkl_info)
-  #define offdata (_comp->offdata)
+  //#define offdata (_comp->offdata)
   #define hkl_list (_comp->hkl_list)
   #define tau_list (_comp->tau_list)
   SIG_MESSAGE("[_Xtal_init] component Xtal=Single_crystal() INITIALISE [Single_crystal:0]");
@@ -25968,9 +26076,9 @@ _class_Single_crystal *class_Single_crystal_init(_class_Single_crystal *_comp
     fprintf (stderr, "Error: You are attempting to use an OFF geometry without -DUSE_OFF. You will need to recompile with that define set!\n");
     exit (-1);
     #else
-    if (off_init (geometry, xwidth, yheight, zdepth, 0, &offdata)) {
-      hkl_info.shape = 3;
-    }
+    /* if (off_init (geometry, xwidth, yheight, zdepth, 0, &offdata)) { */
+    /*   hkl_info.shape = 3; */
+    /* }  */
     #endif
   } else if (xwidth && yheight && zdepth)
     hkl_info.shape = 1; /* box */
@@ -26104,7 +26212,7 @@ _class_Monitor_nD *class_Monitor_nD_init(_class_Monitor_nD *_comp
   #define DEFS (_comp->DEFS)
   #define Vars (_comp->Vars)
   #define detector (_comp->detector)
-  #define offdata (_comp->offdata)
+  // #define offdata (_comp->offdata)
   SIG_MESSAGE("[_nD_Mantid_0_init] component nD_Mantid_0=Monitor_nD() INITIALISE [Monitor_nD:0]");
 
   char tmp[CHAR_BUF_LENGTH];
@@ -26273,14 +26381,14 @@ _class_Monitor_nD *class_Monitor_nD_init(_class_Monitor_nD *_comp
     fprintf (stderr, "Error: You are attempting to use an OFF geometry without -DUSE_OFF. You will need to recompile with that define set!\n");
     exit (-1);
     #else
-    if (!off_init (geometry, xwidth, yheight, zdepth, 1, &offdata)) {
-      printf ("Monitor_nD: %s could not initiate the OFF geometry %s. \n"
-              "            Defaulting to normal Monitor dimensions.\n",
-              NAME_CURRENT_COMP, geometry);
-      strcpy (geometry, "");
-    } else {
-      offflag = 1;
-    }
+    /* if (!off_init (geometry, xwidth, yheight, zdepth, 1, &offdata)) { */
+    /*   printf ("Monitor_nD: %s could not initiate the OFF geometry %s. \n" */
+    /*           "            Defaulting to normal Monitor dimensions.\n", */
+    /*           NAME_CURRENT_COMP, geometry); */
+    /*   strcpy (geometry, ""); */
+    /* } else { */
+    /*   offflag = 1; */
+    /* } */
     #endif
   }
 
@@ -26289,10 +26397,10 @@ _class_Monitor_nD *class_Monitor_nD_init(_class_Monitor_nD *_comp
 
   Monitor_nD_Init (&DEFS, &Vars, xwidth, yheight, zdepth, xmin, xmax, ymin, ymax, zmin, zmax, offflag, nexus_bins);
 
-  if (Vars.Flag_OFF) {
-    offdata.mantidflag = Vars.Flag_mantid;
-    offdata.mantidoffset = Vars.Coord_Min[Vars.Coord_Number - 1];
-  }
+  /* if (Vars.Flag_OFF) { */
+  /*   offdata.mantidflag = Vars.Flag_mantid; */
+  /*   offdata.mantidoffset = Vars.Coord_Min[Vars.Coord_Number - 1]; */
+  /* } */
 
   if (filename && strlen (filename) && strcmp (filename, "NULL") && strcmp (filename, "0"))
     strncpy (Vars.Mon_File, filename, 128);
@@ -27677,15 +27785,16 @@ void class_PSD_monitor_trace(_class_PSD_monitor *_comp
     int j = floor ((y - ymin) * ny / (ymax - ymin));
 
     double p2 = p * p;
+    int idx = i + ny * j;
     #pragma omp atomic update
-    PSD_N[i][j] = PSD_N[i][j] + 1;
+    PSD_N[0][idx] = PSD_N[0][idx] + 1;
 
     #pragma omp atomic update
-    PSD_p[i][j] = PSD_p[i][j] + p;
+    PSD_p[0][idx] = PSD_p[0][idx] + p;
 
     #pragma omp atomic update
-    PSD_p2[i][j] = PSD_p2[i][j] + p2;
-
+    PSD_p2[0][idx] = PSD_p2[0][idx] + p2;
+    
     SCATTER;
   }
   if (restore_neutron) {
@@ -27760,12 +27869,13 @@ void class_Divergence_monitor_trace(_class_Divergence_monitor *_comp
       i = floor ((h_div + maxdiv_h) * nh / (2.0 * maxdiv_h));
       j = floor ((v_div + maxdiv_v) * nv / (2.0 * maxdiv_v));
       double p2 = p * p;
-      #pragma acc atomic
-      Div_N[i][j] = Div_N[i][j] + 1;
-      #pragma acc atomic
-      Div_p[i][j] = Div_p[i][j] + p;
-      #pragma acc atomic
-      Div_p2[i][j] = Div_p2[i][j] + p2;
+      int idx = i + nv * j;
+      #pragma omp atomic update
+      Div_N[0][idx] = Div_N[0][idx] + 1;
+      #pragma omp atomic update
+      Div_p[0][idx] = Div_p[0][idx] + p;
+      #pragma omp atomic update
+      Div_p2[0][idx] = Div_p2[0][idx] + p2;
       SCATTER;
     }
   }
@@ -27846,12 +27956,13 @@ void class_TOFLambda_monitor_trace(_class_TOFLambda_monitor *_comp
       /*  printf("tt_0, tt_1, nt %g %g %i t j %g %i \n",tt_0,tt_1,nt,t,j);
        */
       double p2 = p * p;
-      #pragma acc atomic
-      TOFL_N[j][i] = TOFL_N[j][i] + 1;
-      #pragma acc atomic
-      TOFL_p[j][i] = TOFL_p[j][i] + p;
-      #pragma acc atomic
-      TOFL_p2[j][i] = TOFL_p2[j][i] + p2;
+      int idx = j + nt * i;
+      #pragma omp atomic update
+      TOFL_N[0][idx] = TOFL_N[0][idx] + 1;
+      #pragma omp atomic update
+      TOFL_p[0][idx] = TOFL_p[0][idx] + p;
+      #pragma omp atomic update
+      TOFL_p2[0][idx] = TOFL_p2[0][idx] + p2;
     }
   }
   if (restore_neutron) {
@@ -27936,14 +28047,15 @@ void class_DivLambda_monitor_trace(_class_DivLambda_monitor *_comp
       j = floor ((div + maxdiv_h) * nh / (2.0 * maxdiv_h));
 
       double p2 = p * p;
-      #pragma acc atomic
-      Div_N[i][j] = Div_N[i][j] + 1;
+      int idx = i + nh * j;
+      #pragma omp atomic update
+      Div_N[0][idx] = Div_N[0][idx] + 1;
 
-      #pragma acc atomic
-      Div_p[i][j] = Div_p[i][j] + p;
+      #pragma omp atomic update
+      Div_p[0][idx] = Div_p[0][idx] + p;
 
-      #pragma acc atomic
-      Div_p2[i][j] = Div_p2[i][j] + p2;
+      #pragma omp atomic update
+      Div_p2[0][idx] = Div_p2[0][idx] + p2;
 
       SCATTER;
     }
@@ -28102,8 +28214,8 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   else if (hkl_info.shape == 2)
     intersect = sphere_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius);
   #ifdef USE_OFF
-  else if (hkl_info.shape == 3)
-    intersect = off_intersect (&t1, &t2, NULL, NULL, x, y, z, vx, vy, vz, 0, 0, 0, thread_offdata);
+  /* else if (hkl_info.shape == 3) */
+  /*   intersect = off_intersect (&t1, &t2, NULL, NULL, x, y, z, vx, vy, vz, 0, 0, 0, thread_offdata); */
   #endif
   if (t2 < 0)
     intersect = 0; /* we passed sample volume already */
@@ -28150,8 +28262,8 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
       else if (hkl_info.shape == 2)
         intersect = sphere_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius);
       #ifdef USE_OFF
-      else if (hkl_info.shape == 3)
-        intersect = off_intersect (&t1, &t2, NULL, NULL, x, y, z, vx, vy, vz, 0, 0, 0, thread_offdata);
+      /* else if (hkl_info.shape == 3) */
+      /*   intersect = off_intersect (&t1, &t2, NULL, NULL, x, y, z, vx, vy, vz, 0, 0, 0, thread_offdata); */
       #endif
       if (!intersect || t2 * v < -1e-9 || t1 * v > 1e-9) {
         /* neutron is leaving the sample */
@@ -28257,7 +28369,9 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
           } else
             #endif
 
-            tau_count = hkl_search (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect);
+	  i = 0;
+	  sum=0;
+	  tau_count = hkl_search (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect, &sum, &i, _particle);
 
           /* store ki so that we can check for further SPLIT iterations */
           #if !defined(OPENACC) && !defined(_OPENMP)
@@ -28397,8 +28511,8 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         if (coh_refl <= 0) {
           ABSORB;
         }
-        sum = 0;
-        j = hkl_select (T, tau_count, coh_refl, &sum, _particle);
+        /* sum = 0; */
+        /* j = hkl_select (T, tau_count, coh_refl, &sum, _particle); */
         if (j >= tau_count) {
           #if !defined(OPENACC) && !defined(_OPENMP)
           if (hkl_info.flag_warning < 10)
@@ -28410,15 +28524,38 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
           #endif
           j = tau_count - 1;
         }
-        i = T[j].index;
+        // i = T[j].index;
         /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
         z1 = randnorm ();
         z2 = randnorm ();
-        y1 = T[j].l11 * z1 + T[j].y0x;
-        y2 = T[j].l12 * z1 + T[j].l22 * z2 + T[j].y0y;
-        kfx = T[j].rho_x + T[j].ox + T[j].b1x * y1 + T[j].b2x * y2;
-        kfy = T[j].rho_y + T[j].oy + T[j].b1y * y1 + T[j].b2y * y2;
-        kfz = T[j].rho_z + T[j].oz + T[j].b1z * y1 + T[j].b2z * y2;
+	double rho_x, rho_y, rho_z, rho, rhoj_x, rhoj_y, rhoj_z, ox, oy, oz;
+	calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+
+	double kx, ky, kz;
+	kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z, kx,  ky,  kz, L[i].tau);
+	
+        double nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+
+        double n11, n12, n22, inv_n11, inv_n12, inv_n22, l11, l12, l22, y0x, y0y;
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+
+	rho = calc_rho(rho_x, rho_y, rho_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+        y1 = l11 * z1 + y0x;
+        y2 = l12 * z1 + l22 * z2 + y0y;
+        kfx = rhoj_x + ox + b1x * y1 + b2x * y2;
+        kfy = rhoj_y + oy + b1y * y1 + b2y * y2;
+        kfz = rhoj_z + oz + b1z * y1 + b2z * y2;
 
         /* Normalize kf to length of ki, to account for planer
           approximation of the Ewald sphere. */
@@ -28427,7 +28564,7 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
         kfy *= adjust;
         kfz *= adjust;
         /* Adjust neutron weight (see manual for explanation). */
-        double pmul = T[j].xsect * coh_refl / (coh_xsect * T[j].refl);
+        double pmul = L[i].F2 * coh_refl / coh_xsect;
         if (!isnan (pmul))
           p *= pmul;
         vx = K2V * (L[i].u1x * kfx + L[i].u2x * kfy + L[i].u3x * kfz);
@@ -28591,9 +28728,9 @@ void class_Monitor_nD_trace(_class_Monitor_nD *_comp
   int intersect = 0;
   char Flag_Restore = 0;
 
-  #if defined(OPENACC) || defined(_OPENMP)
+  #if defined(OPENACC)
   #ifdef USE_OFF
-  off_struct thread_offdata = offdata;
+  // off_struct thread_offdata = offdata;
   #endif
   #else
   #define thread_offdata offdata
@@ -28603,17 +28740,17 @@ void class_Monitor_nD_trace(_class_Monitor_nD *_comp
     STORE_NEUTRON(INDEX_CURRENT_COMP, x, y, z, vx, vy, vz, t, sx, sy, sz, p);
   */
   #ifdef USE_OFF
-  if (geometry && strlen (geometry) && strcmp (geometry, "0") && strcmp (geometry, "NULL")) {
-    /* determine intersections with object */
-    intersect = off_intersect_all (&t0, &t1, NULL, NULL, x, y, z, vx, vy, vz, 0, 0, 0, &thread_offdata);
-    if (Vars.Flag_mantid) {
-      if (intersect) {
-        Vars.OFF_polyidx = thread_offdata.nextintersect;
-      } else {
-        Vars.OFF_polyidx = -1;
-      }
-    }
-  } else
+  /* if (geometry && strlen (geometry) && strcmp (geometry, "0") && strcmp (geometry, "NULL")) { */
+  /*   /\* determine intersections with object *\/ */
+  /*   intersect = off_intersect_all (&t0, &t1, NULL, NULL, x, y, z, vx, vy, vz, 0, 0, 0, &thread_offdata); */
+  /*   if (Vars.Flag_mantid) { */
+  /*     if (intersect) { */
+  /*       Vars.OFF_polyidx = thread_offdata.nextintersect; */
+  /*     } else { */
+  /*       Vars.OFF_polyidx = -1; */
+  /*     } */
+  /*   } */
+  /* } else */
     #endif
     if ((abs (Vars.Flag_Shape) == DEFS.SHAPE_SQUARE) || (abs (Vars.Flag_Shape) == DEFS.SHAPE_DISK)) /* square xy or disk xy */
     {
@@ -30197,7 +30334,6 @@ int raytrace(_class_particle* _particle) { /* single event propagation, called b
     _class_particle Split_Xtal_particle=*_particle;
     int Split_Xtal_counter;
     int SplitS_Xtal = _instrument_var.SPLITS;
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
     for (Split_Xtal_counter = 0; Split_Xtal_counter< SplitS_Xtal; Split_Xtal_counter++) {
       randstate_t randbackup = *_particle->randstate;
       *_particle=Split_Xtal_particle;
@@ -30361,7 +30497,7 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
     #if defined(OPENACC) || defined(_OPENMP)
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
     #endif
-
+    
 #pragma omp target data map(tofrom: _Origin_var)
 #pragma omp target data map(tofrom: _Source_var)
 #pragma omp target data map(tofrom: _PortOrig_var)
@@ -30439,19 +30575,42 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
 #pragma omp target data map(tofrom: _arm_Detector_0_direction_var)
 #pragma omp target data map(tofrom: _arm_Detector_0_var)
 #pragma omp target data map(tofrom: _sampleMantid_var)
-#pragma omp target data map(tofrom: _psdSample_var)
-#pragma omp target data map(tofrom: _divAtSample_var)
-#pragma omp target data map(tofrom: _divAtSampleOverview_var)
-#pragma omp target data map(tofrom: _toflSample_var)
-#pragma omp target data map(tofrom: _divlSample_var)
+#pragma omp target data map(tofrom: _psdSample_var.PSD_N[0][0:_psdSample_var.ny*_psdSample_var.nx], \
+			    _psdSample_var.PSD_p[0][0:_psdSample_var.ny*_psdSample_var.nx], \
+			    _psdSample_var.PSD_p2[0][0:_psdSample_var.ny*_psdSample_var.nx], \
+			    _psdSample_var)
+#pragma omp target data map(tofrom: _divAtSample_var.Div_N[0][0:_divAtSample_var.nh*_divAtSample_var.nv], \
+			    _divAtSample_var.Div_p[0][0:_divAtSample_var.nh*_divAtSample_var.nv], \
+			    _divAtSample_var.Div_p2[0][0:_divAtSample_var.nh*_divAtSample_var.nv], \
+			    _divAtSample_var)
+#pragma omp target data map(tofrom: _divAtSampleOverview_var.Div_N[0][0:_divAtSampleOverview_var.nh*_divAtSampleOverview_var.nv], \
+			    _divAtSampleOverview_var.Div_p[0][0:_divAtSampleOverview_var.nh*_divAtSampleOverview_var.nv], \
+			    _divAtSampleOverview_var.Div_p2[0][0:_divAtSampleOverview_var.nh*_divAtSampleOverview_var.nv], \
+			    _divAtSampleOverview_var)
+#pragma omp target data map(tofrom: _toflSample_var.TOFL_N[0][0:_toflSample_var.nL*_toflSample_var.nt], \
+			    _toflSample_var.TOFL_p[0][0:_toflSample_var.nL*_toflSample_var.nt], \
+			    _toflSample_var.TOFL_p2[0][0:_toflSample_var.nL*_toflSample_var.nt], \
+			    _toflSample_var)
+#pragma omp target data map(tofrom: _divlSample_var.Div_N[0][0:_divlSample_var.nL*_divlSample_var.nh], \
+			    _divlSample_var.Div_p[0][0:_divlSample_var.nL*_divlSample_var.nh], \
+			    _divlSample_var.Div_p2[0][0:_divlSample_var.nL*_divlSample_var.nh], \
+			    _divlSample_var)
 #pragma omp target data map(tofrom: _Xtal_var)
-#pragma omp target data map(tofrom: _nD_Mantid_0_var)
-#pragma omp target data map(tofrom: _nD_Mantid_1_var)
-#pragma omp target data map(tofrom: _nD_Mantid_2_var)
-#pragma omp target data map(tofrom: _Structure_var)
+#pragma omp target data map(tofrom: _Xtal_var.hkl_list[0:_Xtal_var.hkl_info.count])
+#pragma omp target data map(tofrom: _nD_Mantid_0_var,  \
+			    _nD_Mantid_0_var.Vars.Mon2D_Buffer[0:_nD_Mantid_0_var.Vars.Mon2D_Dim])
+#pragma omp target data map(tofrom: _nD_Mantid_1_var,  \
+			    _nD_Mantid_1_var.Vars.Mon2D_Buffer[0:_nD_Mantid_1_var.Vars.Mon2D_Dim])
+#pragma omp target data map(tofrom: _nD_Mantid_2_var,  \
+			    _nD_Mantid_2_var.Vars.Mon2D_Buffer[0:_nD_Mantid_2_var.Vars.Mon2D_Dim])
+#pragma omp target data map(tofrom: _Structure_var,			\
+                            _Structure_var.Vars.Mon2D_N[0][0:_Structure_var.Vars.Mon2D_Dim], \
+			    _Structure_var.Vars.Mon2D_p[0][0:_Structure_var.Vars.Mon2D_Dim], \
+                            _Structure_var.Vars.Mon2D_p2[0][0:_Structure_var.Vars.Mon2D_Dim])
 #pragma omp target data map(to:_instrument_var)
   {
-    #pragma omp target teams num_teams(64) thread_limit(16) loop
+    #pragma omp target teams
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
       _class_particle* _particle = &particleN;
@@ -33753,7 +33912,7 @@ _class_Single_crystal *class_Single_crystal_display(_class_Single_crystal *_comp
   #define PG (_comp->PG)
   #define deltak (_comp->deltak)
   #define hkl_info (_comp->hkl_info)
-  #define offdata (_comp->offdata)
+  //  #define offdata (_comp->offdata)
   #define hkl_list (_comp->hkl_list)
   #define tau_list (_comp->tau_list)
   SIG_MESSAGE("[_Xtal_display] component Xtal=Single_crystal() DISPLAY [Single_crystal:0]");
@@ -33783,9 +33942,9 @@ _class_Single_crystal *class_Single_crystal_display(_class_Single_crystal *_comp
     circle ("xy", 0, 0.0, 0, radius);
     circle ("xz", 0, 0.0, 0, radius);
     circle ("yz", 0, 0.0, 0, radius);
-  } else if (hkl_info.shape == 3) { /* OFF file */
-    off_display (offdata);
-  }
+  } /* else if (hkl_info.shape == 3) { /\* OFF file *\/ */
+  /*   off_display (offdata); */
+  /* } */
   #undef reflections
   #undef geometry
   #undef mosaic_AB
@@ -33873,15 +34032,12 @@ _class_Monitor_nD *class_Monitor_nD_display(_class_Monitor_nD *_comp
   #define DEFS (_comp->DEFS)
   #define Vars (_comp->Vars)
   #define detector (_comp->detector)
-  #define offdata (_comp->offdata)
+  //  #define offdata (_comp->offdata)
   SIG_MESSAGE("[_nD_Mantid_0_display] component nD_Mantid_0=Monitor_nD() DISPLAY [Monitor_nD:0]");
 
   printf("MCDISPLAY: component %s\n", _comp->_name);
-  if (geometry && strlen (geometry) && strcmp (geometry, "0") && strcmp (geometry, "NULL")) {
-    off_display (offdata);
-  } else {
-    Monitor_nD_McDisplay (&DEFS, &Vars);
-  }
+  Monitor_nD_McDisplay (&DEFS, &Vars);
+
   #undef user0
   #undef user1
   #undef user2
