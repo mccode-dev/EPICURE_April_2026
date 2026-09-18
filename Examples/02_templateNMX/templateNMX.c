@@ -12275,11 +12275,15 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    #undef sprintf
    #undef fprintf
    #endif
-   #pragma omp target data map(tofrom: _Origin_var)
-   #pragma omp target data map(tofrom: _source_var)
-   #pragma omp target data map(tofrom: _slit_var)
-   #pragma omp target data map(tofrom: _sample_var)
+   #pragma omp target data map(to: _Origin_var)
+   #pragma omp target data map(to: _source_var)
+   #pragma omp target data map(to: _slit_var)
+   #pragma omp target data map(to: _sample_var)
+   #pragma omp target data map(to: _sample_var.hkl_list[0:_sample_var.hkl_info.count])
    #pragma omp target data map(tofrom: _det_var)
+   #pragma omp target data map(tofrom: _det_var.PSD_N[0][0:_det_var.ny*_det_var.nx], \
+			               _det_var.PSD_p[0][0:_det_var.ny*_det_var.nx], \
+			               _det_var.PSD_p2[0][0:_det_var.ny*_det_var.nx])
    #pragma omp target data map(tofrom:_instrument_var)
  { 
   #if defined(OPENACC) || defined(_OPENMP)
@@ -12310,7 +12314,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     if (loops>1) fprintf(stdout, "%d..", (int)cloop); fflush(stdout);
 
     // init particles
-    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       // generate particle state, set loop index and seed
       particles[pidx] = mcgenstate();
@@ -12319,11 +12323,9 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
       #ifdef USE_MPI
       _particle->_uid += mpi_node_rank * ncount; 
       #endif
-      int old;
-      #pragma omp atomic capture
-      {
-        old=_instrument_var._counter+1; _instrument_var._counter=old;
-      }
+      #pragma omp atomic update
+      _instrument_var._counter++;
+
       weights[pidx]=p;
       srandom(_hash((pidx+1)*(seed+1))); // _particle->state usage built into srandom macro
     }
@@ -12337,7 +12339,7 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
 
     // iterate components
 
-    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize])
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize])
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
@@ -12393,7 +12395,13 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
     livebatchsize = sort_absorb_last(particles, pbuffer, livebatchsize, gpu_innerloop, 1, &mult_sample);
     //printf("livebatchsize: %ld, split: %ld\n",  livebatchsize, mult);
 
-    #pragma omp target teams num_teams(64) thread_limit(16) loop map(tofrom: particles[0:livebatchsize])
+    // Reset counter
+    for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
+      weights[pidx] = 0;
+    }
+
+    #pragma omp target teams map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
+    #pragma omp loop
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
