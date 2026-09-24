@@ -923,14 +923,9 @@ long sort_absorb_last_serial(_class_particle* particles, long len);
 
 #define vec_prod(x, y, z, x1, y1, z1, x2, y2, z2) \
 	vec_prod_func(&x, &y, &z, x1, y1, z1, x2, y2, z2)
-#define vec_prod_float(x, y, z, x1, y1, z1, x2, y2, z2) \
-	vec_prod_func_float(&x, &y, &z, x1, y1, z1, x2, y2, z2)
 #pragma acc routine seq
 mcstatic void vec_prod_func(double *x, double *y, double *z,
 		double x1, double y1, double z1, double x2, double y2, double z2);
-mcstatic void vec_prod_func_float(float *x, float *y, float *z,
-		float x1, float y1, float z1, float x2, float y2, float z2);
-
 
 #pragma acc routine seq
 mcstatic double scalar_prod(
@@ -1060,8 +1055,6 @@ int solve_2nd_order(double *t1, double *t2,
 // defines silently introducing _particle as the last argument
 #define randvec_target_circle(xo, yo, zo, solid_angle, xi, yi, zi, radius) \
   _randvec_target_circle(xo, yo, zo, solid_angle, xi, yi, zi, radius, _particle)
-#define randvec_target_circle_float(xo, yo, zo, solid_angle, xi, yi, zi, radius) \
-  _randvec_target_circle_float(xo, yo, zo, solid_angle, xi, yi, zi, radius, _particle)
 #define randvec_target_rect_angular(xo, yo, zo, solid_angle, xi, yi, zi, height, width, A) \
   _randvec_target_rect_angular(xo, yo, zo, solid_angle, xi, yi, zi, height, width, A, _particle)
 #define randvec_target_rect_real(xo, yo, zo, solid_angle, xi, yi, zi, height, width, A, lx, ly, lz, order) \
@@ -1074,9 +1067,6 @@ int solve_2nd_order(double *t1, double *t2,
 #pragma acc routine seq
 void _randvec_target_circle(double *xo, double *yo, double *zo,
   double *solid_angle, double xi, double yi, double zi, double radius,
-  _class_particle* _particle);
-void _randvec_target_circle_float(float *xo, float *yo, float *zo,
-  float *solid_angle, float xi, float yi, float zi, float radius,
   _class_particle* _particle);
 #pragma acc routine seq
 void _randvec_target_rect_angular(double *xo, double *yo, double *zo,
@@ -4984,14 +4974,6 @@ void vec_prod_func(double *x, double *y, double *z,
     *z = (x1)*(y2) - (x2)*(y1);
 }
 
-void vec_prod_func_float(float *x, float *y, float *z,
-		float x1, float y1, float z1,
-		float x2, float y2, float z2) {
-    *x = (y1)*(z2) - (y2)*(z1);
-    *y = (z1)*(x2) - (z2)*(x1);
-    *z = (x1)*(y2) - (x2)*(y1);
-}
-
 /**
  * Scalar product: use coords_sp for Coords.
  */
@@ -5011,10 +4993,7 @@ mcstatic void norm_func(double *x, double *y, double *z) {
 	}
 }
 
-double v(double *x, double *y, double *z) {
-   double temp = (*x * *x) + (*y * *y) + (*z * *z);
-   return sqrt(temp);
-}
+
 /* SECTION: GPU algorithms ================================================== */
 
 
@@ -5270,50 +5249,6 @@ void normal_vec(double *nx, double *ny, double *nz,
   *nz = 0;
 } /* normal_vec */
 
-void normal_vec_float(float *nx, float *ny, float *nz,
-                float x, float y, float z)
-{
-  float ax = fabs(x);
-  float ay = fabs(y);
-  float az = fabs(z);
-  float l;
-  if(x == 0 && y == 0 && z == 0)
-  {
-    *nx = 0;
-    *ny = 0;
-    *nz = 0;
-    return;
-  }
-  if(ax < ay)
-  {
-    if(ax < az)
-    {                           /* Use X axis */
-      l = sqrt(z*z + y*y);
-      *nx = 0;
-      *ny = z/l;
-      *nz = -y/l;
-      return;
-    }
-  }
-  else
-  {
-    if(ay < az)
-    {                           /* Use Y axis */
-      l = sqrt(z*z + x*x);
-      *nx = z/l;
-      *ny = 0;
-      *nz = -x/l;
-      return;
-    }
-  }
-  /* Use Z axis */
-  l = sqrt(y*y + x*x);
-  *nx = y/l;
-  *ny = -x/l;
-  *nz = 0;
-} /* normal_vec */
-
-
 /*******************************************************************************
  * solve_2nd_order: second order equation solve: A*t^2 + B*t + C = 0
  * solve_2nd_order(&t1, NULL, A,B,C)
@@ -5506,65 +5441,6 @@ void _randvec_target_circle(double *xo, double *yo, double *zo, double *solid_an
 
   /* [xyz]u = [xyz]i x n[xyz] (usually vertical) */
   vec_prod(xu,  yu,  zu, xi, yi, zi,        nx, ny, nz);
-  /* [xyz]t = [xyz]i rotated theta around [xyz]u */
-  rotate  (xt,  yt,  zt, xi, yi, zi, theta, xu, yu, zu);
-  /* [xyz]o = [xyz]t rotated phi around n[xyz] */
-  rotate (*xo, *yo, *zo, xt, yt, zt, phi, xi, yi, zi);
-}
-/* randvec_target_circle */
-void _randvec_target_circle_float(float *xo, float *yo, float *zo, float *solid_angle,
-        float xi, float yi, float zi, float radius,
-        _class_particle* _particle)
-{
-  float l2, phi, theta, nx, ny, nz, xt, yt, zt, xu, yu, zu;
-
-  if(radius == 0.0)
-  {
-    /* No target, choose uniformly a direction in full 4PI solid angle. */
-    theta = acos(1 - rand0max(2));
-    phi = rand0max(2 * PI);
-    if(solid_angle)
-      *solid_angle = 4*PI;
-    nx = 1;
-    ny = 0;
-    nz = 0;
-    yi = sqrt(xi*xi+yi*yi+zi*zi);
-    zi = 0;
-    xi = 0;
-  }
-  else
-  {
-    float costheta0;
-    l2 = xi*xi + yi*yi + zi*zi; /* sqr Distance to target. */
-    costheta0 = sqrt(l2/(radius*radius+l2));
-    if (radius < 0) costheta0 *= -1;
-    if(solid_angle)
-    {
-      /* Compute solid angle of target as seen from origin. */
-        *solid_angle = 2*PI*(1 - costheta0);
-    }
-
-    /* Now choose point uniformly on circle surface within angle theta0 */
-    theta = acos (1 - rand0max(1 - costheta0)); /* radius on circle */
-    phi = rand0max(2 * PI); /* rotation on circle at given radius */
-    /* Now, to obtain the desired vector rotate (xi,yi,zi) angle theta around a
-       perpendicular axis u=i x n and then angle phi around i. */
-    if(xi == 0 && zi == 0)
-    {
-      nx = 1;
-      ny = 0;
-      nz = 0;
-    }
-    else
-    {
-      nx = -zi;
-      nz = xi;
-      ny = 0;
-    }
-  }
-
-  /* [xyz]u = [xyz]i x n[xyz] (usually vertical) */
-  vec_prod_float(xu,  yu,  zu, xi, yi, zi,        nx, ny, nz);
   /* [xyz]t = [xyz]i rotated theta around [xyz]u */
   rotate  (xt,  yt,  zt, xi, yi, zi, theta, xu, yu, zu);
   /* [xyz]o = [xyz]t rotated phi around n[xyz] */
@@ -9262,11 +9138,11 @@ unsigned int mt_random_opencl(void) // Should be called by others
   #endif
 
   #ifndef MCSX_REFL_SLIST_SIZE
-  #define MCSX_REFL_SLIST_SIZE 1
+  #define MCSX_REFL_SLIST_SIZE 4096
   #endif
 
   struct hkl_data {
-    // int h, k, l;                /* Indices for this reflection */
+    int h, k, l;                /* Indices for this reflection */
     double F2;                  /* Value of structure factor */
     double tau_x, tau_y, tau_z; /* Coordinates in reciprocal space */
     double tau;                 /* Length of (tau_x, tau_y, tau_z) */
@@ -9277,7 +9153,6 @@ unsigned int mt_random_opencl(void) // Should be called by others
     double m1, m2, m3;          /* Diagonal matrix representation of Gauss */
     double cutoff;              /* Cutoff value for Gaussian tails */
   };
-
 
   struct tau_data {
     //int index; /* Index into reflection table */
@@ -9714,9 +9589,9 @@ unsigned int mt_random_opencl(void) // Should be called by others
       } else if (info->column_order[4])
         F2 = Table_Index (sTable, i, info->column_order[4] - 1);
 
-      /* list[i].h = h; */
-      /* list[i].k = k; */
-      /* list[i].l = l; */
+      list[i].h = h;
+      list[i].k = k;
+      list[i].l = l;
       list[i].F2 = F2;
 
       /* Precompute some values */
@@ -9913,84 +9788,84 @@ unsigned int mt_random_opencl(void) // Should be called by others
       tau_count (return), coh_refl, coh_xsect, T (updated elements in the array up to [j])
    */
 
-void calc_rho_xyz(float *rho_x, float *rho_y, float *rho_z,
-		  float kix, float kiy, float kiz,
-		  float tau_x, float tau_y, float tau_z) {
-  *rho_x = (float)kix - tau_x;
-  *rho_y = (float)kiy - tau_y;
-  *rho_z = (float)kiz - tau_z;
+void calc_rho_xyz(double *rho_x, double *rho_y, double *rho_z,
+		  double kix, double kiy, double kiz,
+		  double tau_x, double tau_y, double tau_z) {
+  *rho_x = kix - tau_x;
+  *rho_y = kiy - tau_y;
+  *rho_z = kiz - tau_z;
 }
 
-void calc_rhoj_xyz(float *rhoj_x, float *rhoj_y, float *rhoj_z,
-		   float kx, float ky, float kz, float tau) {
-  *rhoj_x = (float)kx - tau;
-  *rhoj_y = (float)ky;
-  *rhoj_z = (float)kz;
+void calc_rhoj_xyz(double *rhoj_x, double *rhoj_y, double *rhoj_z,
+		   double kx, double ky, double kz, double tau) {
+  *rhoj_x = kx - tau;
+  *rhoj_y = ky;
+  *rhoj_z = kz;
 }
  
-float calc_rho(float rho_x, float rho_y, float rho_z) {
-  float rho = (float)sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
+double calc_rho(double rho_x, double rho_y, double rho_z) {
+  double rho = sqrt (rho_x * rho_x + rho_y * rho_y + rho_z * rho_z);
   return rho;
 }
 
-void calc_n_xyz(float* nx, float* ny, float* nz, float rho_x, float rho_y, float rho_z) {
-  float rho = calc_rho(rho_x, rho_y, rho_z);
-  *nx = (float)rho_x / rho;
-  *ny = (float)rho_y / rho;
-  *nz = (float)rho_z / rho;
+void calc_n_xyz(double* nx, double* ny, double* nz, double rho_x, double rho_y, double rho_z) {
+  double rho = calc_rho(rho_x, rho_y, rho_z);
+  *nx = rho_x / rho;
+  *ny = rho_y / rho;
+  *nz = rho_z / rho;
 }
 
-void calc_nxx(float* n11, float* n12, float* n22, float m1, float m2, float m3,
-	      float b1x, float b1y, float b1z, float b2x, float b2y, float b2z) {
-  *n11 = (float)m1 * b1x * b1x + m2 * b1y * b1y + m3 * b1z * b1z;
-  *n12 = (float)m1 * b1x * b2x + m2 * b1y * b2y + m3 * b1z * b2z;
-  *n22 = (float)m1 * b2x * b2x + m2 * b2y * b2y + m3 * b2z * b2z;
+void calc_nxx(double* n11, double* n12, double* n22, double m1, double m2, double m3,
+	      double b1x, double b1y, double b1z, double b2x, double b2y, double b2z) {
+  *n11 = m1 * b1x * b1x + m2 * b1y * b1y + m3 * b1z * b1z;
+  *n12 = m1 * b1x * b2x + m2 * b1y * b2y + m3 * b1z * b2z;
+  *n22 = m1 * b2x * b2x + m2 * b2y * b2y + m3 * b2z * b2z;
 }
 
-void calc_inv_nxx(float* inv_n11, float* inv_n12, float* inv_n22,
-		  float n11, float n12, float n22) {
+void calc_inv_nxx(double* inv_n11, double* inv_n12, double* inv_n22,
+		  double n11, double n12, double n22) {
   /* The (symmetric) inverse matrix of N. */
-  float det_N = n11 * n22 - n12 * n12;
-  *inv_n11 = (float)n22 / det_N;
-  *inv_n12 = (float)-n12 / det_N;
-  *inv_n22 = (float)n11 / det_N;
+  double det_N = n11 * n22 - n12 * n12;
+  *inv_n11 = n22 / det_N;
+  *inv_n12 = -n12 / det_N;
+  *inv_n22 = n11 / det_N;
 }
 
-void calc_lxx(float* l11, float* l12, float* l22,
-	      float inv_n11, float inv_n12, float inv_n22) {
-  *l11 = (float)sqrt (inv_n11 / 2);
-  *l12 = (float)inv_n12 / (2 * *l11);
+void calc_lxx(double* l11, double* l12, double* l22,
+	      double inv_n11, double inv_n12, double inv_n22) {
+  *l11 = sqrt (inv_n11 / 2);
+  *l12 = inv_n12 / (2 * *l11);
 
-  *l22 = (float)sqrt (inv_n22 / 2 - *l12 * *l12);
+  *l22 = sqrt (inv_n22 / 2 - *l12 * *l12);
 }
 
-void calc_y0(float* y0x, float* y0y,
-	     float b1x, float b1y, float b1z,
-	     float b2x, float b2y, float b2z,
-	     float ox, float oy, float oz,
-	     float m1, float m2, float m3,
-	     float inv_n11, float inv_n12, float inv_n22) {
+void calc_y0(double* y0x, double* y0y,
+	     double b1x, double b1y, double b1z,
+	     double b2x, double b2y, double b2z,
+	     double ox, double oy, double oz,
+	     double m1, double m2, double m3,
+	     double inv_n11, double inv_n12, double inv_n22) {
   /* The product B^T D o. */
-  float Bt_D_O_x = b1x * m1 * ox + b1y * m2 * oy + b1z * m3 * oz;
-  float Bt_D_O_y = b2x * m1 * ox + b2y * m2 * oy + b2z * m3 * oz;
+  double Bt_D_O_x = b1x * m1 * ox + b1y * m2 * oy + b1z * m3 * oz;
+  double Bt_D_O_y = b2x * m1 * ox + b2y * m2 * oy + b2z * m3 * oz;
   /* Center of 2D Gauss in plane coordinates. */
-  *y0x = (float)-(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
-  *y0y = (float)-(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
+  *y0x = -(Bt_D_O_x * inv_n11 + Bt_D_O_y * inv_n12);
+  *y0y = -(Bt_D_O_x * inv_n12 + Bt_D_O_y * inv_n22);
 }
 
-void calc_o_xyz(float* ox, float* oy, float* oz,
-		float ki, float rho, float nx, float ny, float nz) {
-  *ox = (float)(ki - rho) * nx;
-  *oy = (float)(ki - rho) * ny;
-  *oz = (float)(ki - rho) * nz;
+void calc_o_xyz(double* ox, double* oy, double* oz,
+		double ki, double rho, double nx, double ny, double nz) {
+  *ox = (ki - rho) * nx;
+  *oy = (ki - rho) * ny;
+  *oz = (ki - rho) * nz;
 }
 
-float calc_refl(struct hkl_data* L, int i, float xsect_factor, float rho, float kix, float kiy, float kiz, float ki) {
-  float rhoj_x, rhoj_y, rhoj_z;
-  float ox, oy, oz;
-  float b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
-  float n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
-  float y0x, y0y, alpha;
+double calc_refl(struct hkl_data* L, int i, double xsect_factor, double rho, double kix, double kiy, double kiz, double ki) {
+  double rhoj_x, rhoj_y, rhoj_z;
+  double ox, oy, oz;
+  double b1x, b1y, b1z, b2x, b2y, b2z, kx, ky, kz, nx, ny, nz;
+  double n11, n22, n12, inv_n11, inv_n22, inv_n12, l11, l22, l12, det_L;
+  double y0x, y0y, alpha;
 
   /* Get ki vector in local coordinates. */
   kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
@@ -10004,8 +9879,8 @@ float calc_refl(struct hkl_data* L, int i, float xsect_factor, float rho, float 
   calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
 
   /* Compute unit vectors b1 and b2 that span the tangent plane. */
-  normal_vec_float (&b1x, &b1y, &b1z, nx, ny, nz);
-  vec_prod_float (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+  normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+  vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
   /* Compute the 2D projection of the 3D Gauss of the reflection. */
   /* The symmetric 2x2 matrix N describing the 2D gauss. */
   calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
@@ -10022,24 +9897,25 @@ float calc_refl(struct hkl_data* L, int i, float xsect_factor, float rho, float 
 
   #pragma acc routine
   int
-  hkl_search (struct hkl_data* L, int count, float V0, float m_delta_d_d, float kix, float kiy, float kiz, float* coh_refl, float* coh_xsect,  _class_particle* _particle) {
-    float rho, rho_x, rho_y, rho_z;
-    float diff;
+  hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect, double* sum, int* idx, _class_particle* _particle) {
+    double rho, rho_x, rho_y, rho_z;
+    double diff;
     int i, j;
-    int idx;
-    float ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
+
+    double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
     int jglobal = -1;
-    float coherent_refl, coherent_xsect;
-    float refl;
+    double coherent_refl, coherent_xsect;
+    double refl;
 
-    /* Max possible tau for this ki with 5*sigma delta-d/d cutoff. */
-    float tau_max = 2 * ki / (1 - 5 * m_delta_d_d);
+    struct tau_data* T = (struct tau_data*)TT;
 
+    // coherent_refl = *coh_refl;
+    // coherent_xsect = *coh_xsect;
     coherent_refl = 0;
     coherent_xsect = 0;
 
     /* Common factor in coherent cross-section */
-    float xsect_factor = pow (2 * PI, 5.0 / 2.0) / (V0 * ki * ki);
+    double xsect_factor = pow (2 * PI, 5.0 / 2.0) / (V0 * ki * ki);
     j = 0;
     for (i = 0; i < count; i++) {
       /* Assuming reflections are sorted, stop search when max tau exceeded. */
@@ -10062,8 +9938,8 @@ float calc_refl(struct hkl_data* L, int i, float xsect_factor, float rho, float 
     } /* end for */
 
     rho = 0, rho_x = 0, rho_y = 0, rho_z = 0;
-    float r = (float)rand0max (*coh_refl);
-    float sum = 0;
+    double r = rand0max (*coh_refl);
+    *sum = 0;
     for (i = 0; i < count; i++) {
       /* Check if this reciprocal lattice point is close enough to the
          Ewald sphere to make scattering possible. */
@@ -10073,15 +9949,15 @@ float calc_refl(struct hkl_data* L, int i, float xsect_factor, float rho, float 
 
       /* Check if scattering is possible (cutoff of Gaussian tails). */
       if (diff <= L[i].cutoff) {
-	sum += calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
-	idx = i;
+	*sum += calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
+	*idx = i;
       }
 
-      if (sum > r)
+      if (*sum > r)
 	break;
     } /* end for */
 
-    return idx;
+    return (j); // this is 'tau_count', i.e. number of reachable reflections
   } /* end hkl_search */
 
   /* #pragma acc routine */
@@ -11504,184 +11380,6 @@ void class_Slit_trace(_class_Slit *_comp
   return;
 } /* class_Slit_trace */
 
-void coherent_scattering(float kix, float  kiy, float kiz, float ki, struct hkl_data* L, int i,
-			 float* kfx, float* kfy, float* kfz, _class_particle* _particle) {
-  float z1, z2, y1, y2;            /* Temporaries to choose kf from 2D Gauss */
-  z1 = randnorm ();
-  z2 = randnorm ();
-  
-  float rho_x, rho_y, rho_z, rho, rhoj_x, rhoj_y, rhoj_z, ox, oy, oz;
-  calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
-
-  float kx, ky, kz;
-  kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
-  ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
-  kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
-  calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z, kx,  ky,  kz, L[i].tau);
-	
-  float nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
-  calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
-  normal_vec_float (&b1x, &b1y, &b1z, nx, ny, nz);
-  vec_prod_float (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
-
-  float n11, n12, n22, inv_n11, inv_n12, inv_n22, l11, l12, l22, y0x, y0y;
-  calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
-  calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
-  calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
-
-  rho = calc_rho(rho_x, rho_y, rho_z);
-  calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
-  calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
-
-  y1 = l11 * z1 + y0x;
-  y2 = l12 * z1 + l22 * z2 + y0y;
-  *kfx = rhoj_x + ox + b1x * y1 + b2x * y2;
-  *kfy = rhoj_y + oy + b1y * y1 + b2y * y2;
-  *kfz = rhoj_z + oz + b1z * y1 + b2z * y2;
-}
-
-void calc_intersection(int* intersect, _class_particle *_particle, int shape, double* t1, double* t2,
-		      double radius, double xwidth, double yheight, double zdepth) {
-  if (shape == 0)
-    *intersect = cylinder_intersect (t1, t2, x, y, z, vx, vy, vz, radius, yheight);
-  else if (shape == 1)
-    *intersect = box_intersect (t1, t2, x, y, z, vx, vy, vz, xwidth, yheight, zdepth);
-  else if (shape == 2)
-    *intersect = sphere_intersect (t1, t2, x, y, z, vx, vy, vz, radius);
-}
-
-int transmission(float kix, float kiy, float kiz, struct hkl_info_struct hkl_info, struct hkl_data* L,
-		 int* i, _class_particle* _particle, double* t1, double* t2, float radius, float xwidth,
-		 float yheight, float zdepth, int* intersect, int order, int extra_order, float abs_xlen,
-		 float inc_xlen, float* tot_xlen, int event_counter, double p_transmit, float* coh_xsect,
-		 float* coh_refl, float* coh_xlen) {
-  float v = sqrt(vx * vx + vy * vy + vz * vz);
-  float p_trans;
-  float l_full;                    /* Neutron path length for transmission */
-  double mc_trans, mc_interact; /* Transmission, interaction MC choices */
-  double lab_vx, lab_vy, lab_vz;
-  /* Angles for powder randomization */
-  lab_vx = vx;
-  lab_vy = vy;
-  lab_vz = vz;
-
-  calc_intersection(intersect, _particle, hkl_info.shape, t1, t2, radius, xwidth, yheight, zdepth);
-  if (!*intersect || *t2 * v < -1e-9 || *t1 * v > 1e-9) {
-    /* neutron is leaving the sample */
-    if (hkl_info.flag_warning < 10)
-      return -1;
-  }
-
-  l_full = *t2 * v;
-  if ((order && !(extra_order) && event_counter >= order) || (order && extra_order && event_counter >= order + extra_order)) {
-    // Exit due to truncated order, weight with relevant cross-sections to distance l_full
-    p *= exp (-abs_xlen * l_full);
-    *intersect = 0;
-    return -1;
-  }
-
-  /* (2). Intersection of Ewald sphere with reciprocal lattice points */
-  *coh_xsect = 0, *coh_refl = 0;
-  // Condition to skip calculation of coherent cross section when, needed for extra_order feature
-  if (order == 0 || extra_order == 0 || event_counter < order) {
-    /* call hkl_search */
-    *i = hkl_search (L, hkl_info.count, hkl_info.V0, hkl_info.m_delta_d_d, kix, kiy, kiz, coh_refl, coh_xsect, _particle); 
-  } else {
-    // When extra_order used, disable coherent scattering after order reached, but continue
-    // Set coherent cross section to zero to ignore coherent part
-    *coh_refl = 0;
-    *coh_xsect = 0;
-  }
-
-  /* (3). Probabilities of the different possible interactions. */
-  /* Cross-sections are in barns = 10**-28 m**2, and unit cell volumes are
-     in AA**3 = 10**-30 m**2. Hence a factor of 100 is used to convert
-     scattering lengths to m**-1 */
-  *coh_xlen = *coh_xsect / hkl_info.V0;
-  if (hkl_info.flag_barns) {
-    *coh_xlen *= 100;
-  } /* else assume fm^2 */
-  *tot_xlen = abs_xlen + inc_xlen + *coh_xlen;
-
-  /* if (*tot_xlen <= 0) { */
-  /*   ABSORB; // Should we really absorb here? If "nothing" can happen we perhaps ought to "pass" instead? */
-  /* } */
-
-  /* (5). Transmission */
-  p_trans = exp (-*tot_xlen * l_full);
-  if (!event_counter && p_transmit >= 0 && p_transmit <= 1) {
-    mc_trans = p_transmit; /* first event */
-  } else {
-    mc_trans = p_trans;
-  }
-  mc_interact = 1 - mc_trans;
-  if (mc_trans > 0 && (mc_trans >= 1 || rand01 () < mc_trans)) /* Transmit */
-    {
-      p *= p_trans / mc_trans;
-      *intersect = 0;
-      return -1;
-    }
-
-  /* Scattering "proper", i.e. coh or incoh */
-  if (mc_interact <= 0) /* Protect against rounding errors */
-    {
-      *intersect = 0;
-      return -1;
-    }
-
-  /* First-pass considerations: */
-  if (!event_counter)
-    p *= fabs (1 - p_trans) / mc_interact;
-
-  /* Propagate to scattering point in lab space */
-  vx = lab_vx;
-  vy = lab_vy;
-  vz = lab_vz;
-  return 0;
-}
-
-void scatter_event(float kix, float kiy, float kiz, float ki, struct hkl_data* L, int i, _class_particle* _particle,
-		   float coh_xlen, float inc_xlen, float tot_xlen, float coh_refl, float coh_xsect) {
-  float kfx, kfy, kfz;
-  float adjust, pmul;
-  /* (4). Account for the probability of sigma_abs */
-  p *= (coh_xlen + inc_xlen) / tot_xlen;
-      
-  /* Choose between coherent and incoherent scattering */
-  if (coh_xlen == 0 || rand0max (coh_xlen + inc_xlen) <= inc_xlen) {
-    /* (6). Incoherent scattering */
-    randvec_target_circle_float (&kix, &kiy, &kiz, NULL, vx, vy, vz, 0);
-    vx = kix; /* ki vector is used as tmp var with norm v */
-    vy = kiy;
-    vz = kiz; /* Go for next scattering event */
-
-  } else {
-    /* 7. Coherent scattering. Select reciprocal lattice point. */	
-    if (coh_refl <= 0) {
-      ABSORB;
-    }
-
-    /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
-    coherent_scattering(kix, kiy, kiz, ki, L, i, &kfx, &kfy, &kfz, _particle);
-
-    /* Normalize kf to length of ki, to account for planer
-       approximation of the Ewald sphere. */
-    adjust = ki / sqrt (kfx * kfx + kfy * kfy + kfz * kfz);
-    kfx *= adjust;
-    kfy *= adjust;
-    kfz *= adjust;
-    /* Adjust neutron weight (see manual for explanation). */
-    pmul = L[i].F2 * coh_refl / coh_xsect;
-    if (!isnan (pmul))
-      p *= pmul;
-    vx = K2V * (L[i].u1x * kfx + L[i].u2x * kfy + L[i].u3x * kfz);
-    vy = K2V * (L[i].u1y * kfx + L[i].u2y * kfy + L[i].u3y * kfz);
-    vz = K2V * (L[i].u1z * kfx + L[i].u2z * kfy + L[i].u3z * kfz);
-  }
-
-  SCATTER;
-}
-
 void class_Single_crystal_trace(_class_Single_crystal *_comp
   , _class_particle *_particle) {
   ABSORBED=SCATTERED=RESTORE=0;
@@ -11699,6 +11397,15 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   #define mosaic_c (_comp->mosaic_c)
   #define recip_cell (_comp->recip_cell)
   #define barns (_comp->barns)
+  #define ax (_comp->ax)
+  #define ay (_comp->ay)
+  #define az (_comp->az)
+  #define bx (_comp->bx)
+  #define by (_comp->by)
+  #define bz (_comp->bz)
+  #define cx (_comp->cx)
+  #define cy (_comp->cy)
+  #define cz (_comp->cz)
   #define p_transmit (_comp->p_transmit)
   #define sigma_abs (_comp->sigma_abs)
   #define sigma_inc (_comp->sigma_inc)
@@ -11718,59 +11425,465 @@ void class_Single_crystal_trace(_class_Single_crystal *_comp
   SIG_MESSAGE("[_sample_trace] component sample=Single_crystal() TRACE [Single_crystal:0]");
 
   double t1, t2 = 0;  /* Entry and exit times in sample */
+  struct hkl_data* L; /* Structure factor list */
   int i;              /* Index into structure factor list */
+
+  #if !defined(OPENACC) && !defined(_OPENMP)
+  struct tau_data* T; /* List of reflections close to Ewald sphere */
+  #else
+  struct tau_data T[MCSX_REFL_SLIST_SIZE];
+  // #pragma omp allocate(T) allocator(omp_pteam_mem_alloc)
+  #endif
   int tau_count;              /* Number of reflections close to Ewald sphere*/
   int j;                      /* Index into reflection list */
   int event_counter;          /* scattering event counter */
-  float abs_xlen;       /* Absorption cross section and length */
-  float inc_xlen;       /* Incoherent scattering cross section and length */
-  int intersect;
-  float v;
-  struct hkl_data* L;
-  
-  float coh_refl, coh_xsect;
-  float kix, kiy, kiz, ki;
-  float tot_xsect, tot_xlen;       /* Total cross section and length */
-  float coh_xlen;                  /* Coherent cross section and length */
-  float l;                         /* Path length to scattering event */
+  double kix, kiy, kiz, ki;   /* Initial wave vector [1/AA] */
+  double kfx, kfy, kfz;       /* Final wave vector */
+  double v;                   /* Neutron velocity */
+  double rho_x, rho_y, rho_z; /* the vector ki - tau */
+  double rho;
+  double diff;                      /* Deviation from Bragg condition */
+  double ox, oy, oz;                /* Origin of Ewald sphere tangent plane */
+  double b1x, b1y, b1z;             /* First vector spanning tangent plane */
+  double b2x, b2y, b2z;             /* Second vector spanning tangent plane */
+  double n11, n12, n22;             /* 2D Gauss description matrix N */
+  double det_N;                     /* Determinant of N */
+  double inv_n11, inv_n12, inv_n22; /* Inverse of N */
+  double l11, l12, l22;             /* Cholesky decomposition L of 1/2*inv(N) */
+  double det_L;                     /* Determinant of L */
+  double Bt_D_O_x, Bt_D_O_y;        /* Temporaries */
+  double y0x, y0y;                  /* Center of 2D Gauss in plane coordinates */
+  double alpha;                     /* Offset of 2D Gauss center from 3D center */
+  double V0;                        /* Volume of unit cell */
+  double l_full;                    /* Neutron path length for transmission */
+  double l;                         /* Path length to scattering event */
+  double abs_xsect, abs_xlen;       /* Absorption cross section and length */
+  double inc_xsect, inc_xlen;       /* Incoherent scattering cross section and length */
+  double coh_xlen;                  /* Coherent cross section and length */
+  double tot_xsect, tot_xlen;       /* Total cross section and length */
+  double z1, z2, y1, y2;            /* Temporaries to choose kf from 2D Gauss */
+  double adjust, sum;               /* Temporaries */
+
+  double p_trans;               /* Transmission probability */
+  double mc_trans, mc_interact; /* Transmission, interaction MC choices */
+  int intersect = 0;
+  double theta, phi; /* rotation angles for curved lattice option */
+
+  double curv_xangle;
+  double curv_yangle;
+
+  double _vx;
+  double _vy;
+  double _vz;
+
+  char type; /* type of last event: t=transmit,c=coherent or i=incoherent */
+  int itype; /* type of last event: t=1,c=2 or i=3 */
+
+  /* PW 20260615 suppressed OFF 
+  #if defined(OPENACC) || defined(_OPENMP)
+  #ifdef USE_OFF
+  off_struct thread_offdata = offdata;
+  #endif
+  #else
+  #define thread_offdata offdata
+  #endif
+  */
   
   /* Intersection neutron trajectory / sample (sample surface) */
-  calc_intersection(&intersect, _particle, hkl_info.shape, &t1, &t2, radius, xwidth, yheight, zdepth);
+  if (hkl_info.shape == 0)
+    intersect = cylinder_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius, yheight);
+  else if (hkl_info.shape == 1)
+    intersect = box_intersect (&t1, &t2, x, y, z, vx, vy, vz, xwidth, yheight, zdepth);
+  else if (hkl_info.shape == 2)
+    intersect = sphere_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius);
   if (t2 < 0)
     intersect = 0; /* we passed sample volume already */
-  
+
   if (intersect) { /* Neutron intersects crystal */
     if (t1 > 0)
       PROP_DT (t1); /* Move to crystal surface if not inside */
-
-    /* (1). Compute incoming wave vector ki */
-    kix = V2K * vx;
-    kiy = V2K * vy;
-    kiz = V2K * vz;
-    ki = V2K * sqrt(vx * vx + vy * vy + vz * vz);
+    v = sqrt (vx * vx + vy * vy + vz * vz);
+    ki = V2K * v;
     event_counter = 0;
+    abs_xsect = hkl_info.sigma_a * 2200 / v;
+    inc_xsect = hkl_info.sigma_i;
+    V0 = hkl_info.V0;
+    abs_xlen = abs_xsect / V0;
+    inc_xlen = inc_xsect / V0;
+
     /* Scalar cross sections for inc/abs are given in barns, so we need a scaling factor of 100
        to get scattering lengths in m, since V0 is assumed to be in AA*/
-    abs_xlen = 100 * hkl_info.sigma_a * 2200 / sqrt(vx * vx + vy * vy + vz * vz) / hkl_info.V0;
-    inc_xlen = 100 * hkl_info.sigma_i / hkl_info.V0;
+    abs_xlen *= 100;
+    inc_xlen *= 100;
 
-    /* Loop over multiple scattering events */
-    do {
-      int status = transmission(kix, kiy, kiz, hkl_info, hkl_list, &i, _particle, &t1, &t2, radius,
-				xwidth, yheight, zdepth, &intersect, order, extra_order,
-				abs_xlen, inc_xlen, &tot_xlen, event_counter, p_transmit,
-				&coh_xsect, &coh_refl, &coh_xlen);
-      if (!status)
-	break;
+    L = hkl_list;
 
-      PROP_DT (l / sqrt(vx * vx + vy * vy + vz * vz));
+    type = '\0';
+    itype = 0;
+
+    #if !defined(OPENACC) && !defined(_OPENMP)
+    T = tau_list;
+    hkl_info.type = type;
+    #endif
+    do { /* Loop over multiple scattering events */
+      /* Angles for powder randomization */
+      double Alpha, Beta, Gamma;
+      double lab_vx, lab_vy, lab_vz;
+
+      lab_vx = vx;
+      lab_vy = vy;
+      lab_vz = vz;
+
+      if (hkl_info.shape == 0)
+        intersect = cylinder_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius, yheight);
+      else if (hkl_info.shape == 1)
+        intersect = box_intersect (&t1, &t2, x, y, z, vx, vy, vz, xwidth, yheight, zdepth);
+      else if (hkl_info.shape == 2)
+        intersect = sphere_intersect (&t1, &t2, x, y, z, vx, vy, vz, radius);
+      if (!intersect || t2 * v < -1e-9 || t1 * v > 1e-9) {
+        /* neutron is leaving the sample */
+        if (hkl_info.flag_warning < 10)
+          #if !defined(OPENACC) && !defined(_OPENMP)
+          fprintf (stderr,
+                   "Single_crystal: %s: Warning: neutron has unexpectedly left the crystal!\n"
+                   "                t1=%g t2=%g x=%g y=%g z=%g vx=%g vy=%g vz=%g\n",
+                   NAME_CURRENT_COMP, t1, t2, x, y, z, vx, vy, vz);
+        hkl_info.flag_warning++;
+        #endif
+        break;
+      }
+
+      l_full = t2 * v;
+
+      if ((order && !(extra_order) && event_counter >= order) || (order && extra_order && event_counter >= order + extra_order)) {
+        // Exit due to truncated order, weight with relevant cross-sections to distance l_full
+        p *= exp (-abs_xlen * l_full);
+        intersect = 0;
+        break;
+      }
+
+      /* (1). Compute incoming wave vector ki */
+      if (powder) { /* orientation of crystallite is random */
+        Alpha = randpm1 () * PI * powder;
+        Beta = randpm1 () * PI / 2;
+        Gamma = randpm1 () * PI;
+        randrotate (&vx, &vy, &vz, Alpha, Beta, Gamma);
+      }
+      if (PG) { /* orientation of crystallite is random along <c> axis */
+        Alpha = randpm1 () * PI * PG;
+        PGrotate (&vx, &vy, &vz, Alpha, hkl_info.csx, hkl_info.csy, hkl_info.csz);
+      }
+
+      /* ------------------------------------------------------------------------- */
+      /* lattice curvature option: rotate neutron velocity */
+      /* WARNING: cannot be used together with the PG c-rotation! */
+      curv_xangle = 0;
+      curv_yangle = 0;
+
+      _vx = vx;
+      _vy = vy;
+      _vz = vz;
+
+      if (RY) { /* rotate v around x axis based on y pos, for vertical focus */
+        curv_yangle = atan2 (y, RY);
+        vec_rotate_2d (&vy, &vz, curv_yangle);
+        vec_rotate_2d (&sy, &sz, curv_yangle);
+
+        /*changing y,z actually curves the crystal, not only the planes*/
+        /*comment out if only curvature of the lattice planes is needed*/
+        vec_rotate_2d (&y, &z, curv_yangle);
+      }
+      if (RX) { /* rotate v around y axis based on x pos, for horizontal focus */
+        curv_xangle = atan2 (x, RX);
+        vec_rotate_2d (&vx, &vz, curv_xangle);
+        vec_rotate_2d (&sx, &sz, curv_xangle);
+
+        /*changing x,z actually curves the crystal, not only the planes*/
+        /*comment out if only curvature of the lattice planes is needed*/
+        vec_rotate_2d (&x, &z, curv_xangle);
+      }
+
+      kix = V2K * vx;
+      kiy = V2K * vy;
+      kiz = V2K * vz;
+      vx = _vx;
+      vy = _vy;
+      vz = _vz;
+      /* ------------------------------------------------------------------------- */
+
+      /* (2). Intersection of Ewald sphere with reciprocal lattice points */
+
+      double coh_xsect = 0, coh_refl = 0;
+      // Condition to skip calculation of coherent cross section when, needed for extra_order feature
+      if (order == 0 || extra_order == 0 || event_counter < order) {
+        #if !defined(OPENACC) && !defined(_OPENMP)
+        /* in case we use 'SPLIT' then consecutive neutrons can be identical when entering here
+           and we may skip the hkl_search call. One tau_list is reserved for data for the initial
+               ray results so that it potentially can be reused later. */
+        T = tau_list;
+        if (order == 1 && fabs (kix - hkl_info.kix) < deltak && fabs (kiy - hkl_info.kiy) < deltak && fabs (kiz - hkl_info.kiz) < deltak) {
+          hkl_info.nb_reuses++;
+
+          /* Restore in case of matching event (e.g. SPLIT) */
+          coh_refl = hkl_info.coh_refl;
+          coh_xsect = hkl_info.coh_xsect;
+          tau_count = hkl_info.tau_count;
+        } else {
+          #endif
+          /* Max possible tau for this ki with 5*sigma delta-d/d cutoff. */
+          double tau_max = 2 * ki / (1 - 5 * hkl_info.m_delta_d_d);
+
+          /* call hkl_search */
+          #ifdef USE_OPENCL
+          if (oclContext_SX.Kernel != NULL) { // the Kernel could be initialised
+            tau_count = hkl_search_opencl (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect, oclContext_SX, d_L, d_T, d_tau_count,
+                                           d_coh_refl, d_coh_xsect);
+            if (tau_count != 0)
+              MPI_MASTER (printf ("\nGPU tau_count:%i\n", tau_count););
+          } else
+            #endif
+
+	  i = 0;
+	  sum = 0;
+	  tau_count = hkl_search (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect, &sum, &i, _particle);
+
+          /* store ki so that we can check for further SPLIT iterations */
+          #if !defined(OPENACC) && !defined(_OPENMP)
+          if (tau_count > hkl_info.max_tau_count) {
+            hkl_info.max_tau_count = tau_count;
+          }
+          if (event_counter == 0) { /* only for incoming neutron */
+            hkl_info.kix = kix;
+            hkl_info.kiy = kiy;
+            hkl_info.kiz = kiz;
+
+            /* Store for potential re-use (e.g. SPLIT) */
+            hkl_info.coh_refl = coh_refl;
+            hkl_info.coh_xsect = coh_xsect;
+            hkl_info.tau_count = tau_count;
+            hkl_info.nb_refl += tau_count;
+            hkl_info.nb_refl_count++;
+          }
+        }
+        #endif
+      } else {
+        // When extra_order used, disable coherent scattering after order reached, but continue
+        // Set coherent cross section to zero to ignore coherent part
+        coh_refl = 0;
+        coh_xsect = 0;
+        tau_count = 0;
+      }
+
+      /* (3). Probabilities of the different possible interactions. */
+      /* Cross-sections are in barns = 10**-28 m**2, and unit cell volumes are
+         in AA**3 = 10**-30 m**2. Hence a factor of 100 is used to convert
+         scattering lengths to m**-1 */
+      coh_xlen = coh_xsect / V0;
+      if (hkl_info.flag_barns) {
+        coh_xlen *= 100;
+      } /* else assume fm^2 */
+      tot_xlen = abs_xlen + inc_xlen + coh_xlen;
+
+      if (tot_xlen <= 0) {
+        ABSORB; // Should we really absorb here? If "nothing" can happen we perhaps ought to "pass" instead?
+      }
+
+      /* (5). Transmission */
+      p_trans = exp (-tot_xlen * l_full);
+      if (!event_counter && p_transmit >= 0 && p_transmit <= 1) {
+        mc_trans = p_transmit; /* first event */
+      } else {
+        mc_trans = p_trans;
+      }
+      mc_interact = 1 - mc_trans;
+      if (mc_trans > 0 && (mc_trans >= 1 || rand01 () < mc_trans)) /* Transmit */
+      {
+        p *= p_trans / mc_trans;
+        intersect = 0;
+        if (powder) { /* orientation of crystallite is longer random */
+          randderotate (&vx, &vy, &vz, Alpha, Beta, Gamma);
+        }
+        if (PG) { /* orientation of crystallite is longer random */
+          PGderotate (&vx, &vy, &vz, Alpha, hkl_info.csx, hkl_info.csy, hkl_info.csz);
+        }
+
+        type = 't';
+        if (!itype)
+          itype = 1;
+        #if !defined(OPENACC) && !defined(_OPENMP)
+        hkl_info.type = type;
+        #endif
+
+        break;
+        /* This break means that we are leaving the while-loop, exiting the
+           crystal by "tunneling". */
+      }
+
+      /* Scattering "proper", i.e. coh or incoh */
+      if (mc_interact <= 0) /* Protect against rounding errors */
+      {
+        intersect = 0;
+        if (powder) { /* orientation of crystallite is no longer random */
+          randderotate (&vx, &vy, &vz, Alpha, Beta, Gamma);
+        }
+        if (PG) { /* orientation of crystallite is no longer random, rotation around <c> */
+          PGderotate (&vx, &vy, &vz, Alpha, hkl_info.csx, hkl_info.csy, hkl_info.csz);
+        }
+        break;
+      }
+
+      /* First-pass considerations: */
+      if (!event_counter)
+        p *= fabs (1 - p_trans) / mc_interact;
+      /* Select a point at which to scatter the neutron, taking
+         secondary extinction into account. */
+      /* dP(l) = exp(-tot_xlen*l)dl
+         P(l<l_0) = [-1/tot_xlen*exp(-tot_xlen*l)]_0^l_0
+                  = (1 - exp(-tot_xlen*l0))/tot_xlen
+         l = -log(1 - tot_xlen*rand0max(P(l<l_full)))/tot_xlen
+       */
+      if (tot_xlen * l_full < 1e-6)
+        /* For very weak scattering, use simple uniform sampling of scattering
+           point to avoid rounding errors. */
+        l = rand0max (l_full);
+      else
+        l = -log (1 - rand0max ((1 - exp (-tot_xlen * l_full)))) / tot_xlen;
+
+      /* Propagate to scattering point in lab space */
+      vx = lab_vx;
+      vy = lab_vy;
+      vz = lab_vz;
+
+      PROP_DT (l / v);
       event_counter++;
 
-      scatter_event(kix, kiy, kiz, ki, hkl_list, i, _particle, coh_xlen, inc_xlen, tot_xlen, coh_refl, coh_xsect);
-      
+      if (PG || powder) {
+        /* In case of PG or powder return to crystalite frame after propagation */
+        vx = _vx;
+        vy = _vy;
+        vz = _vz;
+      }
+
+      /* (4). Account for the probability of sigma_abs */
+      p *= (coh_xlen + inc_xlen) / tot_xlen;
+      /* Choose between coherent and incoherent scattering */
+      if (coh_xlen == 0 || rand0max (coh_xlen + inc_xlen) <= inc_xlen) {
+        /* (6). Incoherent scattering */
+        randvec_target_circle (&kix, &kiy, &kiz, NULL, vx, vy, vz, 0);
+        vx = kix; /* ki vector is used as tmp var with norm v */
+        vy = kiy;
+        vz = kiz; /* Go for next scattering event */
+
+        type = 'i';
+        if (!itype)
+          itype = 2;
+        #if !defined(OPENACC) && !defined(_OPENMP)
+        hkl_info.type = type;
+        #endif
+      } else {
+        /* 7. Coherent scattering. Select reciprocal lattice point. */	
+        if (coh_refl <= 0) {
+          ABSORB;
+        }
+	/* sum = 0; */
+	/* j = hkl_select (T, tau_count, coh_refl, &sum, _particle); */
+        if (j >= tau_count) {
+          #if !defined(OPENACC) && !defined(_OPENMP)
+          if (hkl_info.flag_warning < 10)
+            fprintf (stderr,
+                     "Single_crystal: Error: Illegal tau search "
+                     "(sum=%g, j=%i, tau_count=%i).\n",
+                     sum, j, tau_count);
+          hkl_info.flag_warning++;
+          #endif
+          j = tau_count - 1;
+        }
+        // i = T[j].index;
+        /* (8). Pick scattered wavevector kf from 2D Gauss distribution. */
+        z1 = randnorm ();
+        z2 = randnorm ();
+
+	double rho_x, rho_y, rho_z, rho, rhoj_x, rhoj_y, rhoj_z, ox, oy, oz;
+	calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
+
+	double kx, ky, kz;
+	kx = kix * L[i].u1x + kiy * L[i].u1y + kiz * L[i].u1z;
+        ky = kix * L[i].u2x + kiy * L[i].u2y + kiz * L[i].u2z;
+        kz = kix * L[i].u3x + kiy * L[i].u3y + kiz * L[i].u3z;
+	calc_rhoj_xyz(&rhoj_x,  &rhoj_y,  &rhoj_z, kx,  ky,  kz, L[i].tau);
+	
+        double nx, ny, nz, b1x, b1y, b1z, b2x, b2y, b2z;
+        calc_n_xyz(&nx, &ny, &nz, rhoj_x, rhoj_y, rhoj_z);
+        normal_vec (&b1x, &b1y, &b1z, nx, ny, nz);
+        vec_prod (b2x, b2y, b2z, nx, ny, nz, b1x, b1y, b1z);
+
+        double n11, n12, n22, inv_n11, inv_n12, inv_n22, l11, l12, l22, y0x, y0y;
+        calc_nxx(&n11, &n12, &n22, L[i].m1, L[i].m2, L[i].m3, b1x, b1y, b1z, b2x, b2y, b2z);
+        calc_inv_nxx(&inv_n11, &inv_n12, &inv_n22, n11, n12, n22);
+        calc_lxx(&l11, &l12, &l22, inv_n11, inv_n12, inv_n22);
+
+	rho = calc_rho(rho_x, rho_y, rho_z);
+	calc_o_xyz(&ox, &oy, &oz, ki, rho, nx, ny, nz);
+        calc_y0(&y0x, &y0y, b1x, b1y, b1z, b2x, b2y, b2z, ox, oy, oz, L[i].m1, L[i].m2, L[i].m3, inv_n11, inv_n12, inv_n22);
+
+        y1 = l11 * z1 + y0x;
+        y2 = l12 * z1 + l22 * z2 + y0y;
+        kfx = rhoj_x + ox + b1x * y1 + b2x * y2;
+        kfy = rhoj_y + oy + b1y * y1 + b2y * y2;
+        kfz = rhoj_z + oz + b1z * y1 + b2z * y2;
+
+        /* Normalize kf to length of ki, to account for planer
+          approximation of the Ewald sphere. */
+        adjust = ki / sqrt (kfx * kfx + kfy * kfy + kfz * kfz);
+        kfx *= adjust;
+        kfy *= adjust;
+        kfz *= adjust;
+        /* Adjust neutron weight (see manual for explanation). */
+        double pmul = L[i].F2 * coh_refl / coh_xsect;
+        if (!isnan (pmul))
+          p *= pmul;
+        vx = K2V * (L[i].u1x * kfx + L[i].u2x * kfy + L[i].u3x * kfz);
+        vy = K2V * (L[i].u1y * kfx + L[i].u2y * kfy + L[i].u3y * kfz);
+        vz = K2V * (L[i].u1z * kfx + L[i].u2z * kfy + L[i].u3z * kfz);
+
+        type = 'c';
+        if (!itype)
+          itype = 3;
+        #if !defined(OPENACC) && !defined(_OPENMP)
+        hkl_info.type = type;
+        hkl_info.h = L[i].h;
+        hkl_info.k = L[i].k;
+        hkl_info.l = L[i].l;
+        #endif
+      }
+      /* ------------------------------------------------------------------------- */
+      /* lattice curvature option: rotate back neutron velocity */
+      if (RX) {
+        vec_rotate_2d (&vx, &vz, -curv_xangle);
+        vec_rotate_2d (&sx, &sz, -curv_xangle);
+
+        /*changing x,z actually curves the crystal, not only the planes*/
+        /*comment out if only curvature of the lattice planes is needed*/
+        vec_rotate_2d (&x, &z, -curv_xangle);
+      }
+      if (RY) {
+        vec_rotate_2d (&vy, &vz, -curv_yangle);
+        vec_rotate_2d (&sy, &sz, -curv_yangle);
+
+        /*changing y,z actually curves the crystal, not only the planes*/
+        /*comment out if only curvature of the lattice planes is needed*/
+        vec_rotate_2d (&y, &z, -curv_yangle);
+      }
+      /* ------------------------------------------------------------------------- */
+      SCATTER;
+      if (powder) { /* orientation of crystallite is no longer random */
+        randderotate (&vx, &vy, &vz, Alpha, Beta, Gamma);
+      }
+      if (PG) { /* orientation of crystallite is longer random */
+        PGderotate (&vx, &vy, &vz, Alpha, hkl_info.csx, hkl_info.csy, hkl_info.csz);
+      }
       /* Repeat loop for next scattering event. */
     } while (intersect); /* end do (intersect) (multiple scattering loop) */
-
   } /* if intersect */
 #ifndef NOABSORB_INF_NAN
   /* Check for nan or inf particle parms */ 
@@ -11805,6 +11918,15 @@ if (_comp->_index == 4) { // EXTEND 'sample'
   #undef mosaic_c
   #undef recip_cell
   #undef barns
+  #undef ax
+  #undef ay
+  #undef az
+  #undef bx
+  #undef by
+  #undef bz
+  #undef cx
+  #undef cy
+  #undef cz
   #undef p_transmit
   #undef sigma_abs
   #undef sigma_inc
@@ -12094,19 +12216,14 @@ void raytrace_all(unsigned long long ncount, unsigned long seed) {
   #pragma omp target data map(to: _source_var)
   #pragma omp target data map(to: _slit_var)
   #pragma omp target data map(to: _sample_var)
-  #pragma omp target data map(to: _sample_var.hkl_list[0:1]) //_sample_var.hkl_info.count])
-  #pragma omp target data map(to: _sample_var.reflections[0:16384])
-  #pragma omp target data map(to: _sample_var.geometry[0:16384])
-  #pragma omp target data map(to: _sample_var._name[0:256])
-  #pragma omp target data map(to: _sample_var._type[0:256])
-  #pragma omp target data map(to: _sample_var.mosaic_AB[0:8])
+  #pragma omp target data map(to: _sample_var.hkl_list[0:_sample_var.hkl_info.count])
   #pragma omp target data map(tofrom: _det_var)
   #pragma omp target data map(tofrom: _det_var.PSD_N[0][0:_det_var.ny*_det_var.nx], \
 			      _det_var.PSD_p[0][0:_det_var.ny*_det_var.nx], \
 			      _det_var.PSD_p2[0][0:_det_var.ny*_det_var.nx])
   #pragma omp target data map(to:_instrument_var)
   {
-#pragma omp target teams
+  #pragma omp target teams
   #pragma omp loop
     for (unsigned long pidx=0 ; pidx < gpu_innerloop ; pidx++) {
       _class_particle particleN = mcgenstate(); // initial particle
@@ -12221,8 +12338,8 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
    printf("** Particle creation end weightsum=%g\n",psum);
 
     // iterate components
-    #pragma omp target teams map(tofrom: particles[0:livebatchsize])
-    #pragma omp loop 
+
+    #pragma omp target teams loop map(tofrom: particles[0:livebatchsize])
     for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
       _class_particle* _particle = &particles[pidx];
       _class_particle _particle_save;
@@ -12299,17 +12416,11 @@ void raytrace_all_funnel(unsigned long long ncount, unsigned long seed) {
           mccoordschange(_sample_var._position_relative, _sample_var._rotation_relative, _particle);
         _particle_save = *_particle;
         class_Single_crystal_trace(&_sample_var, _particle); /* contains EXTEND code */
-        if (_particle->_restore) particle_restore(_particle, &_particle_save);
+        if (_particle->_restore)
+        particle_restore(_particle, &_particle_save);
         _particle->_index++;
-    }
-    }
+      }
 
-    #pragma omp target teams map(tofrom: particles[0:livebatchsize], weights[0:livebatchsize])
-    #pragma omp loop
-    for (unsigned long pidx=0 ; pidx < livebatchsize ; pidx++) {
-      _class_particle* _particle = &particles[pidx];
-      _class_particle _particle_save;
-    
       // det
     if (!ABSORBED && _particle->_index == 5) {
 #ifndef MULTICORE
