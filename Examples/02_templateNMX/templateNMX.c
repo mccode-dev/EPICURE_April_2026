@@ -9895,70 +9895,50 @@ double calc_refl(struct hkl_data* L, int i, double xsect_factor, double rho, dou
   return xsect_factor * det_L * exp (-alpha) / L[i].sig123;
 }
 
-  #pragma acc routine
-  int
-  hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect, double* sum, int* idx, _class_particle* _particle) {
-    double rho, rho_x, rho_y, rho_z;
-    double diff;
-    int i, j;
+#pragma acc routine
+int
+hkl_search (struct hkl_data* L, void* TT, int count, double V0, double kix, double kiy, double kiz, double tau_max, double* coh_refl, double* coh_xsect, double* sum, int* idx, _class_particle* _particle) {
+  double rho, rho_x, rho_y, rho_z;
+  double diff;
+  int i, j;
 
-    double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
-    int jglobal = -1;
-    double coherent_refl, coherent_xsect;
-    double refl;
+  const double ki = sqrt (kix * kix + kiy * kiy + kiz * kiz);
+  double refl;
 
-    struct tau_data* T = (struct tau_data*)TT;
+  /* Common factor in coherent cross-section */
+  const double xsect_factor = pow (2 * PI, 5.0 / 2.0) / (V0 * ki * ki);
+  double total = 0.0, xs = 0.0, sum_at_sel = 0.0;
+  int sel = -1;
 
-    // coherent_refl = *coh_refl;
-    // coherent_xsect = *coh_xsect;
-    coherent_refl = 0;
-    coherent_xsect = 0;
+  for (i = 0; i < count; i++) {
+    if (L[i].tau > tau_max) break;
 
-    /* Common factor in coherent cross-section */
-    double xsect_factor = pow (2 * PI, 5.0 / 2.0) / (V0 * ki * ki);
-    j = 0;
-    for (i = 0; i < count; i++) {
-      /* Assuming reflections are sorted, stop search when max tau exceeded. */
-      if (L[i].tau > tau_max)
-        break;
-      /* Check if this reciprocal lattice point is close enough to the
-         Ewald sphere to make scattering possible. */
+    calc_rho_xyz(&rho_x, &rho_y, &rho_z, kix, kiy, kiz,
+		 L[i].tau_x, L[i].tau_y, L[i].tau_z);
+    rho  = calc_rho(rho_x, rho_y, rho_z);
+    diff = fabs(rho - ki);
 
-      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
-      rho = calc_rho(rho_x, rho_y, rho_z);
-      diff = fabs (rho - ki);
+    if (diff <= L[i].cutoff) {
+      refl   = calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
+      total += refl;
+      xs    += refl * L[i].F2;
+      j++;
 
-      /* Check if scattering is possible (cutoff of Gaussian tails). */
-      if (diff <= L[i].cutoff) {
-        refl = calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
-        *coh_refl += refl;                                        /* total scatterable intensity*/
-        *coh_xsect += refl * L[i].F2;
-        j++;
+      /* pick i with probability refl/total */
+      if (rand0max(total) < refl) {
+	sel = i;
+	sum_at_sel = total;
       }
-    } /* end for */
-
-    rho = 0, rho_x = 0, rho_y = 0, rho_z = 0;
-    double r = rand0max (*coh_refl);
-    *sum = 0;
-    for (i = 0; i < count; i++) {
-      /* Check if this reciprocal lattice point is close enough to the
-         Ewald sphere to make scattering possible. */
-      calc_rho_xyz(&rho_x,  &rho_y,  &rho_z, kix,  kiy,  kiz, L[i].tau_x,  L[i].tau_y, L[i].tau_z);
-      rho = calc_rho(rho_x, rho_y, rho_z);
-      diff = fabs (rho - ki);
-
-      /* Check if scattering is possible (cutoff of Gaussian tails). */
-      if (diff <= L[i].cutoff) {
-	*sum += calc_refl(L, i, xsect_factor, rho, kix, kiy, kiz, ki);
-	*idx = i;
-      }
-
-      if (*sum > r)
-	break;
-    } /* end for */
-
-    return (j); // this is 'tau_count', i.e. number of reachable reflections
-  } /* end hkl_search */
+    }
+  }
+  *coh_refl  += total;
+  *coh_xsect += xs;
+  if (sel >= 0) {
+    *sum = sum_at_sel;
+    *idx = sel;
+  }
+  return (j);
+}
 
   /* #pragma acc routine */
   /* int */
