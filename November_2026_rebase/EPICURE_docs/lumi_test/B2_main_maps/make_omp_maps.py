@@ -357,5 +357,32 @@ s = cut(s, '        sum = 0;\n        #ifdef MCGPU\n        j = 0; /* already se
 s = once(s, '        i = T[j].index;\n', '        j = 0; /* already selected in hkl_search_select */\n        i = T[j].index;\n')
 s = cut(s, '    /* in case this instance is used in a SPLIT, we can recommend the\n', '    #ifdef USE_OPENCL\n    if (oclContext_SX')
 
+# --- 10. Single_crystal: list order independent of compiler rounding ---------------------
+# Symmetry equivalents have the same tau up to rounding, and FMA changes those last bits, so
+# the order of equivalents differed between e.g. gcc and nvc -fast and the same random draw
+# picked a mirrored reflection. Compare tau on a 1e-9 grid, then integer h, k, l.
+# NUMERICAL CHANGE (all builds): fixed-seed results change; statistics do not.
+a = '    /* Sort by tau */\n    if (pa->tau < pb->tau)'
+b = '    /* In case of tie, sort by F2 also */'
+assert s.count(a) == 1
+i = s.index(a)
+s = s[:i] + '''    /* Sort by tau, on a grid coarser than rounding so that the order of symmetry
+       equivalents does not depend on the compiler */
+    double ta = floor (pa->tau * 1e9 + 0.5), tb = floor (pb->tau * 1e9 + 0.5);
+    if (ta < tb)
+      return -1;
+    if (ta > tb)
+      return 1;
+
+    /* Sort by h, k, l */
+    if (pa->h != pb->h)
+      return pa->h < pb->h ? -1 : 1;
+    if (pa->k != pb->k)
+      return pa->k < pb->k ? -1 : 1;
+    if (pa->l != pb->l)
+      return pa->l < pb->l ? -1 : 1;
+
+''' + s[s.index(b, i):]
+
 open(sys.argv[2], 'w').write(s)
 print(f'{len(inst)} instances; {len(calls_up)} heap uploads; {len(guards)} guards')

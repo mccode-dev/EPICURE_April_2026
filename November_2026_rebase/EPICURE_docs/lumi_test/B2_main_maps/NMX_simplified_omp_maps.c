@@ -14353,29 +14353,21 @@ unsigned int mt_random_opencl(void) // Should be called by others
     struct hkl_data const* pa = a;
     struct hkl_data const* pb = b;
 
-    /* Sort by tau */
-    if (pa->tau < pb->tau)
+    /* Sort by tau, on a grid coarser than rounding so that the order of symmetry
+       equivalents does not depend on the compiler */
+    double ta = floor (pa->tau * 1e9 + 0.5), tb = floor (pb->tau * 1e9 + 0.5);
+    if (ta < tb)
       return -1;
-    if (pa->tau > pb->tau)
+    if (ta > tb)
       return 1;
 
-    /* Sort by tau_x */
-    if (pa->tau_x < pb->tau_x)
-      return -1;
-    if (pa->tau_x > pb->tau_x)
-      return 1;
-
-    /* Sort by tau_y */
-    if (pa->tau_y < pb->tau_y)
-      return -1;
-    if (pa->tau_y > pb->tau_y)
-      return 1;
-
-    /* Sort by tau_z */
-    if (pa->tau_z < pb->tau_z)
-      return -1;
-    if (pa->tau_z > pb->tau_z)
-      return 1;
+    /* Sort by h, k, l */
+    if (pa->h != pb->h)
+      return pa->h < pb->h ? -1 : 1;
+    if (pa->k != pb->k)
+      return pa->k < pb->k ? -1 : 1;
+    if (pa->l != pb->l)
+      return pa->l < pb->l ? -1 : 1;
 
     /* In case of tie, sort by F2 also */
     if (pa->F2 < pb->F2)

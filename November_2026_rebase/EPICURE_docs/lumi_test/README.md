@@ -56,6 +56,14 @@ are gone, as is the CPU `SPLIT` reuse cache, which restored a list. The rows abo
   largest |z| 1.91, chi2/dof 0.86-1.02. Run with the host OMPTARGET build.
 - **Cost:** CPU `SPLIT` no longer reuses the search. NMX with open slits, `SPLITS=20`, 1e7 rays, serial: 25 s both before and after, as few rays reach the crystal. A sample-dominated instrument would pay more.
 
+**Reflection order independent of the compiler (all B2 builds).** `make_omp_maps.py` step 10 sorts on
+`tau` rounded to a 1e-9 grid, then integer h, k, l. Before this, FMA changed the last bits of `tau`, 48.9%
+of list positions held a different symmetry equivalent between FMA and no-FMA builds, and the same random
+draw picked a mirrored reflection: a no-FMA build reproduced a CPU run 71 of 71 events, but only 46 of 69
+against OpenACC. Now, clang with and without `-ffp-contract=off`: 0 of 222750 positions differ, 67 of 67
+events equal, `Structure.dat` identical. Against stock with an 8192 list (open slits, `SPLITS=20`, 1e8
+rays): 0 flagged. Fixed-seed results change once more. Not yet rerun with gcc and nvc.
+
 **Not checked, only LUMI can do it:** a real device run, CCE accepting all of this, the `target update`
 of structs across a real host/device split (a no-op on the host test), timings. `-DMCMAP_HOST_TEST` swaps
 the `omp_target_*` calls for host stand-ins because macOS `libomp` has no `libomptarget`.
