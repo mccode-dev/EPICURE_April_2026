@@ -40,8 +40,21 @@ never falls back to the host), or for cases not ported: Monitor_nD auto limits o
 | Stack | Largest frames: 3.9 kB kernel, 2.4 kB `raytrace`, 1.7 kB `class_Monitor_nD_trace`, so in the order of 10 kB per thread, against 172 kB on stock `main`. Indicative: math calls were not linked in. |
 | 1e8 rays, 8 host threads, `-DMCMAP_HOST_TEST` | **0 flagged** by `compare.py` against stock `ref_cpu`. Before the crystal χ² = 0 (identical). After it z = +0.39, +0.18, −0.84, +0.39, χ²/dof 0.93, the same as B. Real concurrency on atomics and list slots: 34 s wall, 4m24 CPU. |
 | Host pointers | In that test all host heap pointers are set to `0x10` during the run, which is what they are on the device: unusable. It completed. As negative controls, restoring one host pointer in device code (`hkl_list`, then `Mon2D_N`) segfaults each time, so the test does catch a missed pointer. |
-| CPU and `-DOPENACC` builds | Preprocessed output equals B, apart from one `omp` pragma line that those builds ignore without `-fopenmp`. |
+| CPU and `-DOPENACC` builds | Before the no-list change: preprocessed output equalled B, apart from one ignored `omp` pragma line. They now differ from B in Single_crystal, see below. |
 | `-DOMPTARGET -DUSE_MPI` | Compiles and links (host test mode). Not run. |
+
+**No reflection list (all B2 builds).** `make_omp_maps.py` step 9 makes `hkl_search_select` the only
+selection, on CPU too. `tau_list`, `T[]`, `hkl_search`, `hkl_select`, `MCSX_REFL_SLIST_SIZE` and its cap
+are gone, as is the CPU `SPLIT` reuse cache, which restored a list. The rows above predate this.
+
+- **Numerical change:** every reachable reflection now counts. With a 1024 list, 40% of searches at
+  default slits exceeded the cap (mean 1061, max 2131), losing about 23% of `coh_refl` in those cases.
+  Compare with stock built with `-DMCSX_REFL_SLIST_SIZE=8192`, not 1024.
+- **CPU against the GPU code path, on the host** (1e8 rays, seed 1234, default slits): 69 of 69 events
+  equal, `Structure.dat` identical.
+- **Against stock with an 8192 list** (open slits, `SPLITS=20`, 1e8 rays, different seeds): 0 flagged,
+  largest |z| 1.91, chi2/dof 0.86-1.02. Run with the host OMPTARGET build.
+- **Cost:** CPU `SPLIT` no longer reuses the search. NMX with open slits, `SPLITS=20`, 1e7 rays, serial: 25 s both before and after, as few rays reach the crystal. A sample-dominated instrument would pay more.
 
 **Not checked, only LUMI can do it:** a real device run, CCE accepting all of this, the `target update`
 of structs across a real host/device split (a no-op on the host test), timings. `-DMCMAP_HOST_TEST` swaps

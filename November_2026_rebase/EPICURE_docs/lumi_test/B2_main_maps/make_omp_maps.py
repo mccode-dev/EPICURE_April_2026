@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Second layer on top of make_omp.py: make the OMPTARGET build run WITHOUT unified shared
-memory (LUMI has no HSA_XNACK=1). CPU and OPENACC builds stay as make_omp.py left them.
+memory (LUMI has no HSA_XNACK=1). Transfers only affect OMPTARGET. Step 9 changes all builds:
+Single_crystal selects with hkl_search_select everywhere and keeps no reflection list.
 
   - no 'requires unified_shared_memory'
   - heap data: omp_target_alloc + omp_target_memcpy, device addresses kept in NEW struct
