@@ -89,7 +89,3 @@ Events:   "Detector_2_event_signal_dat_list.p.x.y.n.id.t"
 Detector: Structure_I=1916.08 Structure_ERR=126.08 Structure_N=6340 "Structure.dat"
 
 Finally [NMX: omp_hosttest]. Time: 34 [s] 
-
-real	0m34.273s
-user	4m24.140s
-sys	0m2.321s

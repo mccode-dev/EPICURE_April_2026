@@ -39,7 +39,7 @@
 # Param: TT3=90
 # Param: DetectorDist3=0.25
 # Param: SPLITS=20
-# Date: Wed Nov  4 09:43:27 2026 (1793781807)
+# Date: Wed Nov  4 10:28:07 2026 (1793784487)
 # type: array_2d(500, 500)
 # Source: NMX (NMX_simplified.instr)
 # component: toflSample

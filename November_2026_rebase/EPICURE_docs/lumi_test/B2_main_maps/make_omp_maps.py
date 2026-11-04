@@ -56,8 +56,7 @@ s = (s[:b] + '#pragma omp target teams distribute parallel for num_teams(numgang
 loop = '  for (unsigned long long cloop=0; cloop<loops; cloop++) {\n'
 c = s.index(loop, a)
 s = s[:c] + ('  #ifdef OMPTARGET\n'
-             '  /* set after init(): mcncount is sliced/rounded above, the others come from the command line. mcseed is static and unused on the device: seed is an argument */\n'
-             '  #pragma omp target update to(mcncount, mcrun_num, mcgravitation, mcdotrace)\n'
+             '  mcmap_update_globals();\n'
              '  #endif\n') + s[c:]
 
 # --- 5. monitors: new members + flat index in TRACE --------------------------------------
@@ -79,7 +78,7 @@ def add_members(t, comp, names):
 
 s = once(s, '#ifdef OMPTARGET\n#  include <omp.h>\n', '''#ifdef OMPTARGET
 /* element (i,j) of a host DArray2d, seen from TRACE: device copy is flat row-major */
-#  define MC2D(a, i, j, ncol) (_comp->_parameters.a##_d[(long)(i) * (long)(ncol) + (j)])
+#  define MC2D(a, i, j, ncol) _comp->_parameters.a##_d[(long)(i) * (long)(ncol) + (j)]
 #else
 #  define MC2D(a, i, j, ncol) a[i][j]
 #endif
@@ -263,6 +262,12 @@ static void mcmap_down_nD(const char *comp, MonitornD_Variables_type *V) {
   }
 }
 @FUNCS@
+/* Called from raytrace_all(), after mcncount is sliced/rounded. Must stay here, above the
+   '#define mcgravitation (_particle->mcgravitation)' of the TRACE section. mcseed is static
+   and unused on the device: the seed is a kernel argument. */
+static void mcmap_update_globals(void) {
+  #pragma omp target update to(mcncount, mcrun_num, mcgravitation, mcdotrace)
+}
 /* end of init(), before the component structs go to the device */
 static void mcmap_upload(void) {
   mcmap_host = omp_get_initial_device();

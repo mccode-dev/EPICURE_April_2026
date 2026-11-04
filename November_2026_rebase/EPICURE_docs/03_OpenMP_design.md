@@ -175,6 +175,7 @@ explicit route proves too costly.
 | B10 | `main`'s Single_crystal now `%include`s `mccode-ncrystal-lib` (`DEPENDENCY "@NCRYSTALFLAGS@"`), so NCrystal is a **link-time dependency** on the GPU machine as well. `mcstas -t` leaves `@NCRYSTALFLAGS@` unexpanded in the `CFLAGS=` header line; only mcrun expands it. | LUMI env | `pip install ncrystal`, or guard it out under `MCGPU` |
 | B11 | The code generator emits `declare create(_instrument_var)` *after* `instrument = &_instrument_var`. OpenMP (clang) warns "declare target after first use". | 1 line | PR 2 |
 | B13 | Device code calls libc `printf` (`DEBUG_*`, component diagnostics), `free` and `abs`. Device-side support differs per compiler. B2 removes them in the device pass, using `__AMDGCN__` / `__NVPTX__`. Whether CCE defines these is not verified; if not, the calls stay as they are in B. | runtime | PR 3 |
+| B14 | From the TRACE section on, generated code has `#define mcgravitation (_particle->mcgravitation)`. A `target update` naming that global after this point expands to an expression: CCE rejects it, while clang 21 accepts it silently. Emit such updates before the TRACE macros. | code generator | PR 2 |
 | B9 | Compiler maturity: `declare mapper` broken in nvc, `-O0` stack blow-ups in the funnel path, CCE behaviour unknown to me | — | avoid mappers; build at `-O2`; validate on both compilers |
 
 **Not blockers**, contrary to what the EPICURE branches implied:
