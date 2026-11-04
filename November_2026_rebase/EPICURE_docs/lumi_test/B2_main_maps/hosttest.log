@@ -1,0 +1,95 @@
+Guide MonolithGuide: Setting global m-value m=1 (and overwriting individual mirror defs.)
+Guide NeutronGuide5_2: Setting global m-value m=1 (and overwriting individual mirror defs.)
+Guide NeutronGuide7: Setting global m-value m=1 (and overwriting individual mirror defs.)
+pos=28.4; minL=1.8; maxL=3.55;
+pos=51; minL=1.8; maxL=3.55;
+---- Chopper1 Open Time = 15.4231 ms
+---- Chopper1 Delay = 22.0663 ms
+---- Chopper2 Open Time = 25.4205 ms
+---- Chopper2A Delay = 38.5126 ms
+---- Chopper2B Delay = 33.3291 ms
+[NMX] Initialize
+Source: Setting up for sector W, beamline 1, global orientation angle is 150, internal angle 55
+Source: Focusing at rectagle sized 0.045 x 0.045 
+  - positioned at location (x,y,z)=(0.00109693 m, 0 m, 1.9996 m) 
+ ( from target_index 3 -> distance 1.9996 )
+Source: Cold and Thermal brilliance performance multiplicators are c_performance=1 and t_performance=1
+Source: NOT using time focusing
+Opening input file 'Rubredoxin.lau' (Table_Read_Offset)
+Mode: lengths and angles
+Single_crystal: Rubredoxin.lau structure a=34.375 b=35.183 c=43.994 aa=90 bb=90 cc=90 V0=53207
+Single_crystal: Xtal: Read 222750 reflections from file 'Rubredoxin.lau'
+Single_crystal: Xtal: Vc=53207 [Angs] sigma_abs=188.2 [barn] sigma_inc=2652.5 [barn] reflections=Rubredoxin.lau
+Direct space lattice orientation:
+  a = [0 34.375 2.10486e-15]
+  b = [0 0 35.183]
+  c = [43.994 2.69386e-15 2.69386e-15]
+Reciprocal space lattice orientation:
+  a* = [-1.11923e-17 0.182784 0]
+  b* = [-1.09352e-17 -1.09352e-17 0.178586]
+  c* = [0.142819 0 0]
+[mcmap] 0 device(s), using 0, no unified memory
+[mcmap] to device   psdSample                PSD_N                64800 B
+[mcmap] to device   psdSample                PSD_p                64800 B
+[mcmap] to device   psdSample                PSD_p2               64800 B
+[mcmap] to device   divAtSample              Div_N                80000 B
+[mcmap] to device   divAtSample              Div_p                80000 B
+[mcmap] to device   divAtSample              Div_p2               80000 B
+[mcmap] to device   divAtSampleOverview      Div_N                80000 B
+[mcmap] to device   divAtSampleOverview      Div_p                80000 B
+[mcmap] to device   divAtSampleOverview      Div_p2               80000 B
+[mcmap] to device   toflSample               TOFL_N             2000000 B
+[mcmap] to device   toflSample               TOFL_p             2000000 B
+[mcmap] to device   toflSample               TOFL_p2            2000000 B
+[mcmap] to device   divlSample               Div_N                80000 B
+[mcmap] to device   divlSample               Div_p                80000 B
+[mcmap] to device   divlSample               Div_p2               80000 B
+[mcmap] to device   Xtal                     hkl_list          37422000 B
+[mcmap] to device   nD_Mantid_0              Mon2D_Buffer     480000000 B
+[mcmap] to device   nD_Mantid_1              Mon2D_Buffer     480000000 B
+[mcmap] to device   nD_Mantid_2              Mon2D_Buffer     480000000 B
+[mcmap] to device   Structure                Mon2D_N             131072 B
+[mcmap] to device   Structure                Mon2D_p             131072 B
+[mcmap] to device   Structure                Mon2D_p2            131072 B
+[mcmap] to device total 1484729616 B heap, 2803024 B component structs
+[mcmap] device readback ok: Xtal count=222750 last h=-9
+*** TRACE end *** 
+[mcmap] from device psdSample                PSD_N                64800 B
+[mcmap] from device psdSample                PSD_p                64800 B
+[mcmap] from device psdSample                PSD_p2               64800 B
+[mcmap] from device divAtSample              Div_N                80000 B
+[mcmap] from device divAtSample              Div_p                80000 B
+[mcmap] from device divAtSample              Div_p2               80000 B
+[mcmap] from device divAtSampleOverview      Div_N                80000 B
+[mcmap] from device divAtSampleOverview      Div_p                80000 B
+[mcmap] from device divAtSampleOverview      Div_p2               80000 B
+[mcmap] from device toflSample               TOFL_N             2000000 B
+[mcmap] from device toflSample               TOFL_p             2000000 B
+[mcmap] from device toflSample               TOFL_p2            2000000 B
+[mcmap] from device divlSample               Div_N                80000 B
+[mcmap] from device divlSample               Div_p                80000 B
+[mcmap] from device divlSample               Div_p2               80000 B
+[mcmap] from device nD_Mantid_0              Mon2D_Buffer        307056 B
+[mcmap] from device nD_Mantid_1              Mon2D_Buffer        218736 B
+[mcmap] from device nD_Mantid_2              Mon2D_Buffer        304320 B
+[mcmap] from device Structure                Mon2D_N             131072 B
+[mcmap] from device Structure                Mon2D_p             131072 B
+[mcmap] from device Structure                Mon2D_p2            131072 B
+[mcmap] from device total 8137728 B heap
+
+Save [NMX]
+Detector: psdSample_I=2.61251e+07 psdSample_ERR=309859 psdSample_N=80433 "Sample_psd.dat"
+Detector: divAtSample_I=6.55571e+06 divAtSample_ERR=156937 divAtSample_N=20035 "At_SampleDIVVDIVH.pos"
+Detector: divAtSampleOverview_I=6.55571e+06 divAtSampleOverview_ERR=156937 divAtSampleOverview_N=20035 "At_SampleOverviewDIVVDIVH.pos"
+Detector: toflSample_I=599466 toflSample_ERR=47157.8 toflSample_N=1816 "Sample_tofl.dat"
+Detector: divlSample_I=599466 divlSample_ERR=47157.8 divlSample_N=1816 "sample_divl.dat"
+Events:   "Detector_0_event_signal_dat_list.p.x.y.n.id.t"
+Events:   "Detector_1_event_signal_dat_list.p.x.y.n.id.t"
+Events:   "Detector_2_event_signal_dat_list.p.x.y.n.id.t"
+Detector: Structure_I=1916.08 Structure_ERR=126.08 Structure_N=6340 "Structure.dat"
+
+Finally [NMX: omp_hosttest]. Time: 34 [s] 
+
+real	0m34.273s
+user	4m24.140s
+sys	0m2.321s
