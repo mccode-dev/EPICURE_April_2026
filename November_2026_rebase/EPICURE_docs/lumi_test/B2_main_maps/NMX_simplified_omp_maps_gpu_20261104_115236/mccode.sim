@@ -1,0 +1,254 @@
+mcstas simulation description file for NMX.
+Date:    Wed Nov  4 11:54:22 2026
+Program:  3.99.99, git
+
+begin instrument: NMX
+  File: NMX_simplified_omp_maps_gpu_20261104_115236/mccode
+  Source: NMX_simplified.instr
+  Parameters:  mon_shift(double) lmin(double) lmax(double) LambdaMin(double) LambdaMax(double) L_min(double) L_max(double) n_pulses(double) acc_power(double) Slit1_width(double) Slit1_height(double) Slit2_width(double) Slit2_height(double) PinholeCollimator_width(double) PinholeCollimator_height(double) XtalReflections(string) XtalDelta_d_over_d(double) XtalMosaicity(double) XtalSize_width(double) XtalSize_height(double) XtalSize_depth(double) XtalPhiX(double) XtalPhiY(double) DetectorX(double) DetectorY(double) TT1(double) DetectorDist1(double) TT2(double) DetectorDist2(double) TT3(double) DetectorDist3(double) SPLITS(int)
+  Trace_enabled: yes
+  Default_main: yes
+  Embedded_runtime: yes
+end instrument
+
+begin simulation: NMX_simplified_omp_maps_gpu_20261104_115236
+  Format: McCode with text headers
+  URL: http://www.mccode.org
+  Creator:  3.99.99, git
+  Instrument: NMX_simplified.instr
+  Ncount: 100000000
+  Trace: no
+  Gravitation: no
+  Seed: 1234
+  Directory: NMX_simplified_omp_maps_gpu_20261104_115236
+  Param: mon_shift=0
+  Param: lmin=1.8
+  Param: lmax=3.55
+  Param: LambdaMin=1.8
+  Param: LambdaMax=3.55
+  Param: L_min=1.8
+  Param: L_max=3.55
+  Param: n_pulses=1
+  Param: acc_power=2
+  Param: Slit1_width=0.01
+  Param: Slit1_height=0.01
+  Param: Slit2_width=0.001
+  Param: Slit2_height=0.001
+  Param: PinholeCollimator_width=0.001
+  Param: PinholeCollimator_height=0.002
+  Param: XtalReflections=Rubredoxin.lau
+  Param: XtalDelta_d_over_d=0.0001
+  Param: XtalMosaicity=15
+  Param: XtalSize_width=0.0015
+  Param: XtalSize_height=0.0015
+  Param: XtalSize_depth=0.0015
+  Param: XtalPhiX=0
+  Param: XtalPhiY=0
+  Param: DetectorX=0.512
+  Param: DetectorY=0.512
+  Param: TT1=-90
+  Param: DetectorDist1=0.25
+  Param: TT2=0
+  Param: DetectorDist2=0.32
+  Param: TT3=90
+  Param: DetectorDist3=0.25
+  Param: SPLITS=1
+end simulation
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: array_2d(90, 90)
+  Source: NMX (NMX_simplified.instr)
+  component: psdSample
+  position: 0.527556 0 156.714
+  title: PSD monitor
+  Ncount: 100000000
+  filename: Sample_psd.dat
+  statistics: X0=0.00144099; dX=0.0352239; Y0=-0.00469211; dY=0.0633155;
+  signal: Min=0; Max=5569.42; Mean=6.36234;
+  values: 51535 13854.2 189
+  xvar: X 
+  yvar: Y 
+  xlabel: X position [cm]
+  ylabel: Y position [cm]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -1.5 1.5 -1.5 1.5
+  variables: I I_err N
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: array_2d(100, 100)
+  Source: NMX (NMX_simplified.instr)
+  component: divAtSample
+  position: 0.527556 0 156.714
+  title: Divergence monitor
+  Ncount: 100000000
+  filename: At_SampleDIVVDIVH.pos
+  statistics: X0=-0.00147472; dX=0.0232908; Y0=0.00546572; dY=0.0594556;
+  signal: Min=0; Max=7551.92; Mean=5.1535;
+  values: 51535 13854.2 189
+  xvar: X 
+  yvar: Y 
+  xlabel: X divergence [deg]
+  ylabel: Y divergence [deg]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -0.2 0.2 -0.2 0.2
+  variables: I I_err N
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: array_2d(100, 100)
+  Source: NMX (NMX_simplified.instr)
+  component: divAtSampleOverview
+  position: 0.527556 0 156.714
+  title: Divergence monitor
+  Ncount: 100000000
+  filename: At_SampleOverviewDIVVDIVH.pos
+  statistics: X0=-0.00297004; dX=0.0230829; Y0=0.00471435; dY=0.0583717;
+  signal: Min=0; Max=8816.37; Mean=5.1535;
+  values: 51535 13854.2 189
+  xvar: X 
+  yvar: Y 
+  xlabel: X divergence [deg]
+  ylabel: Y divergence [deg]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -0.5 0.5 -0.5 0.5
+  variables: I I_err N
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: array_2d(500, 500)
+  Source: NMX (NMX_simplified.instr)
+  component: toflSample
+  position: 0.527556 0 156.714
+  title: TOF-wavelength monitor
+  Ncount: 100000000
+  filename: Sample_tofl.dat
+  statistics: X0=108519; dX=12501.4; Y0=2.70055; dY=0.320581;
+  signal: Min=0; Max=5263.19; Mean=0.141224;
+  values: 35306 11096.4 145
+  xvar: Ti
+  yvar: Wa
+  xlabel: Time-of-flight [\gms]
+  ylabel: Wavelength [AA]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: 71662.8 144195 1.7 3.65
+  variables: I I_err N
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: array_2d(100, 100)
+  Source: NMX (NMX_simplified.instr)
+  component: divlSample
+  position: 0.527556 0 156.714
+  title: Wavelength-divergence monitor
+  Ncount: 100000000
+  filename: sample_divl.dat
+  statistics: X0=2.70277; dX=0.317647; Y0=-0.00873216; dY=0.0253079;
+  signal: Min=0; Max=5263.19; Mean=3.5306;
+  values: 35306 11096.4 145
+  xvar: Wa
+  yvar: di
+  xlabel: Wavelength [AA]
+  ylabel: divergence [deg]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: 1.8 3.55 -0.5 0.5
+  variables: I I_err N
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: list(6, 23)
+  Source: NMX (NMX_simplified.instr)
+  component: nD_Mantid_0
+  position: 0.27756 0 156.715
+  title:  Intensity Position Position Neutron_ID Pixel_ID Time_Of_Flight Monitor (Square)
+  Ncount: 100000000
+  filename: Detector_0_event_signal_dat_list.p.x.y.n.id.t
+  statistics: X0=0; dX=0; Y0=0; dY=0;
+  signal: Min=3.79219e-11; Max=3.79219e-11; Mean=0;
+  values: 0 0 0
+  xvar: Li
+  yvar: p 
+  xlabel: List of neutron events
+  ylabel: p x y n id t 
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: 1 23 1 6
+  variables: p x y n id t 
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: list(6, 18)
+  Source: NMX (NMX_simplified.instr)
+  component: nD_Mantid_1
+  position: 0.529257 0 157.034
+  title:  Intensity Position Position Neutron_ID Pixel_ID Time_Of_Flight Monitor (Square)
+  Ncount: 100000000
+  filename: Detector_1_event_signal_dat_list.p.x.y.n.id.t
+  statistics: X0=0; dX=0; Y0=0; dY=0;
+  signal: Min=4.74529e-17; Max=4.74529e-17; Mean=0;
+  values: 0 0 0
+  xvar: Li
+  yvar: p 
+  xlabel: List of neutron events
+  ylabel: p x y n id t 
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: 1 18 1 6
+  variables: p x y n id t 
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: list(6, 28)
+  Source: NMX (NMX_simplified.instr)
+  component: nD_Mantid_2
+  position: 0.777552 0 156.713
+  title:  Intensity Position Position Neutron_ID Pixel_ID Time_Of_Flight Monitor (Square)
+  Ncount: 100000000
+  filename: Detector_2_event_signal_dat_list.p.x.y.n.id.t
+  statistics: X0=0; dX=0; Y0=0; dY=0;
+  signal: Min=3.5371e-12; Max=3.5371e-12; Mean=0;
+  values: 0 0 0
+  xvar: Li
+  yvar: p 
+  xlabel: List of neutron events
+  ylabel: p x y n id t 
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: 1 28 1 6
+  variables: p x y n id t 
+end data
+
+begin data
+  Date: Wed Nov  4 11:57:56 2026 (1793789876)
+  type: array_2d(128, 128)
+  Source: NMX (NMX_simplified.instr)
+  component: Structure
+  position: 0.777552 0 156.713
+  title:  Intensity Position Position Monitor (Square) per bin
+  Ncount: 100000000
+  filename: Structure.dat
+  statistics: X0=0.0896176; dX=0.081118; Y0=0.201782; dY=0.0683797;
+  signal: Min=0; Max=21.4259; Mean=0.00218527;
+  values: 35.8034 23.4166 28
+  xvar: x 
+  yvar: y 
+  xlabel: x [m]
+  ylabel: y [m]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -0.256 0.256 -0.256 0.256
+  variables: I I_err N
+end data

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<head>
+  <script src="d3.v4.min.js"></script>
+  <script src="plotfuncs.js"></script>
+</head>
+<body style="margin:0;overflow:hidden">
+<script>
+  var params = {
+    "w": 1024,
+    "h": 768,
+    "xmin": -0.256,
+    "xmax": 0.256,
+    "ymin": -0.256,
+    "ymax": 0.256,
+    "img2dData": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABlUlEQVR4nO3ZsXFCMRBAQX934ZSYvkidOHIzNEBEGwS0Q2K5AmfMnD9vtwFd8OZmJG1rrfVG1vv0AMwSQJwA4gQQJ4A4AcQJIC4RwM/jMT3Cv7V5CGpLbAD+JoA4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHG7DeBwukyP8BJ8B8ftdgPwHAKIE0CcAOIEECeAYV/n2+j5roFxNkCcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAogTQJwA4gQQJ4A4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAogTQJwA4gQQJ4A4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAogTQJwAht0/v0fP39Zaa3QCRtkAcQKIE0CcAOIEELfbAK4fx+kRXoJrYNxuNwDPIYA4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAoj7BRoZIZ3www1yAAAAAElFTkSuQmCC",
+    "imgColorbar": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAEACAYAAAByPhyYAAAAeklEQVR4nM1S2wqAMAg9uGzf0c/1dX3gFmz2UOxFCcGCvYgczkVFbPshBACUOeHuMEpm0tji5Jl+yfAjha38f4Z7X7b8IvN5MwL7svOmH2dk310gIs/XYZReq9K2eiqsF4unsW5pq6EtTt5EGc3ilYA2MPNUGeZvvGRcUa5n3jMjwl8AAAAASUVORK5CYII=",
+    "cbMin": -5.780601219,
+    "cbMax": 5.780601219,
+    "img2dDataLog": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABuUlEQVR4nO3coU0EURRAUZYu1mIwCOxWhEbh6QfDGlrAImkBB4psyFABCSG7+fy55zQwT9y8yf+TzGZZluWMrPPRAzCWAOIEECeAOAHECSBOAHGJAF7u7keP8G9tXAS1JTYAPxNAnADiBBAngDgBxAkgbooADu8fo0dYLRdBcVNsAE5HAHECiBNA3LQBXNw8jB5hFZwC4qbdAByHAOIEECeAOAHECWCw69vHoc93DIyzAeIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAogTQJwA4gQQJ4A4AcQJIE4AcQKIE0CcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAogTQJwA4gQQJ4C4VQTwefgaPcK0/Cw6bhUbgL8TQJwA4gQQJ4A4AcQJIE4AcQKIE0CcAOIEECeAuF8F8Pz6dvpJGMLn4DivgDgBxAkgTgBxAogTwGBPl7uhz3cMjLMB4gQQJ4A4AcQJIG7aAPbbq9EjrIJjYNy0G4DjEECcAOIEECeAOAHECSBOAHECiBNAnADiBBAngDgBxAkgTgBxAogTQJwA4gQQJ4A4AcR9A9zKM5f3vU4fAAAAAElFTkSuQmCC",
+    "imgColorbarLog": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAEACAYAAAByPhyYAAAAeklEQVR4nM1S2wqAMAg9uGzf0c/1dX3gFmz2UOxFCcGCvYgczkVFbPshBACUOeHuMEpm0tji5Jl+yfAjha38f4Z7X7b8IvN5MwL7svOmH2dk310gIs/XYZReq9K2eiqsF4unsW5pq6EtTt5EGc3ilYA2MPNUGeZvvGRcUa5n3jMjwl8AAAAASUVORK5CYII=",
+    "cbMinLog": -4.000043427276863,
+    "cbMaxLog": 4.000043427276863,
+    "xlabel": "x [m]",
+    "ylabel": "y [m]",
+    "title": "Structure [Structure.dat]  - Diff (A - B), with:\n \nA=NMX_simplified_omp_maps_cpu_20261104_115236\nB=NMX_simplified_omp_maps_gpu_20261104_115236\nDiff: +0.34%\n \n Intensity Position Position Monitor (Square) per bin\nI = 0.12012774778995094 Err = 33.135665951509104 N = 26\n NMX_simplified_omp_maps_cpu_20261104_115236: X0=8.93E-02; dX=8.12E-02; Y0=1.23E-01; dY=1.74E-01;\nNMX_simplified_omp_maps_gpu_20261104_115236: X0=8.96E-02; dX=8.11E-02; Y0=2.02E-01; dY=6.84E-02;"
+};
+  var plt = new Plot2D(params, d3.select("body").append("svg"), logscale=true);
+
+  plt.rgstrMouseClickPlot( () => { console.log("click"); } );
+  plt.rgstrMouseCtrlClickPlot( () => { console.log("ctrl click"); } );
+  plt.rgstrMouseRClickPlot( () => { console.log("right click"); } );
+</script>
+<p>
+<a href="diff_Structure.dat">Download difference data (McCode format): diff_Structure.dat</a>
+</body>
+</html>

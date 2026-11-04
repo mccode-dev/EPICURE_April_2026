@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<head>
+  <script src="d3.v4.min.js"></script>
+  <script src="plotfuncs.js"></script>
+</head>
+<body style="margin:0;overflow:hidden">
+<script>
+  var params = {
+    "w": 1024,
+    "h": 768,
+    "xmin": -1.5,
+    "xmax": 1.5,
+    "ymin": -1.5,
+    "ymax": 1.5,
+    "img2dData": "iVBORw0KGgoAAAANSUhEUgAAAFoAAABaCAYAAAA4qEECAAAA30lEQVR4nO3SQQ0AMAwDsW38OXcoei+bQKRT7szMYd3bn0DokEdHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNCn8QHfygSwADXwtgAAAABJRU5ErkJggg==",
+    "imgColorbar": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAEACAYAAAByPhyYAAAAeklEQVR4nM1S2wqAMAg9uGzf0c/1dX3gFmz2UOxFCcGCvYgczkVFbPshBACUOeHuMEpm0tji5Jl+yfAjha38f4Z7X7b8IvN5MwL7svOmH2dk310gIs/XYZReq9K2eiqsF4unsW5pq6EtTt5EGc3ilYA2MPNUGeZvvGRcUa5n3jMjwl8AAAAASUVORK5CYII=",
+    "cbMin": -0.0,
+    "cbMax": 0.0,
+    "img2dDataLog": "iVBORw0KGgoAAAANSUhEUgAAAFoAAABaCAYAAAA4qEECAAAA30lEQVR4nO3SQQ0AMAwDsW38OXcoei+bQKRT7szMYd3bn0DokEdHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNCn8QHfygSwADXwtgAAAABJRU5ErkJggg==",
+    "imgColorbarLog": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAEACAYAAAByPhyYAAAAeklEQVR4nM1S2wqAMAg9uGzf0c/1dX3gFmz2UOxFCcGCvYgczkVFbPshBACUOeHuMEpm0tji5Jl+yfAjha38f4Z7X7b8IvN5MwL7svOmH2dk310gIs/XYZReq9K2eiqsF4unsW5pq6EtTt5EGc3ilYA2MPNUGeZvvGRcUa5n3jMjwl8AAAAASUVORK5CYII=",
+    "cbMinLog": -0.0,
+    "cbMaxLog": 0.0,
+    "xlabel": "X position [cm]",
+    "ylabel": "Y position [cm]",
+    "title": "psdSample [Sample_psd.dat]  - Diff (A - B), with:\n \nA=NMX_simplified_omp_maps_cpu_20261104_115236\nB=NMX_simplified_omp_maps_gpu_20261104_115236\nDiff: +0.00%\n \nPSD monitor\nI = 0.0 Err = 19592.797535829333 N = 189\n NMX_simplified_omp_maps_cpu_20261104_115236: X0=1.44E-03; dX=3.52E-02; Y0=-4.69E-03; dY=6.33E-02;\nNMX_simplified_omp_maps_gpu_20261104_115236: X0=1.44E-03; dX=3.52E-02; Y0=-4.69E-03; dY=6.33E-02;"
+};
+  var plt = new Plot2D(params, d3.select("body").append("svg"), logscale=true);
+
+  plt.rgstrMouseClickPlot( () => { console.log("click"); } );
+  plt.rgstrMouseCtrlClickPlot( () => { console.log("ctrl click"); } );
+  plt.rgstrMouseRClickPlot( () => { console.log("right click"); } );
+</script>
+<p>
+<a href="diff_Sample_psd.dat">Download difference data (McCode format): diff_Sample_psd.dat</a>
+</body>
+</html>

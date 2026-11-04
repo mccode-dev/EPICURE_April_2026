@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<head>
+  <script src="d3.v4.min.js"></script>
+  <script src="plotfuncs.js"></script>
+</head>
+<body style="margin:0;overflow:hidden">
+<script>
+  var params = {
+    "w": 1024,
+    "h": 768,
+    "xmin": -0.5,
+    "xmax": 0.5,
+    "ymin": -0.5,
+    "ymax": 0.5,
+    "img2dData": "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAABAElEQVR4nO3RQQ0AIBDAMMC/5+ONAvZoFSzZnplZZJzfAbwMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTFktVwIYATE/szUowAAAABJRU5ErkJggg==",
+    "imgColorbar": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAEACAYAAAByPhyYAAAAeklEQVR4nM1S2wqAMAg9uGzf0c/1dX3gFmz2UOxFCcGCvYgczkVFbPshBACUOeHuMEpm0tji5Jl+yfAjha38f4Z7X7b8IvN5MwL7svOmH2dk310gIs/XYZReq9K2eiqsF4unsW5pq6EtTt5EGc3ilYA2MPNUGeZvvGRcUa5n3jMjwl8AAAAASUVORK5CYII=",
+    "cbMin": -0.0,
+    "cbMax": 0.0,
+    "img2dDataLog": "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAABAElEQVR4nO3RQQ0AIBDAMMC/5+ONAvZoFSzZnplZZJzfAbwMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTEkxpAYQ2IMiTFktVwIYATE/szUowAAAABJRU5ErkJggg==",
+    "imgColorbarLog": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAEACAYAAAByPhyYAAAAeklEQVR4nM1S2wqAMAg9uGzf0c/1dX3gFmz2UOxFCcGCvYgczkVFbPshBACUOeHuMEpm0tji5Jl+yfAjha38f4Z7X7b8IvN5MwL7svOmH2dk310gIs/XYZReq9K2eiqsF4unsW5pq6EtTt5EGc3ilYA2MPNUGeZvvGRcUa5n3jMjwl8AAAAASUVORK5CYII=",
+    "cbMinLog": -0.0,
+    "cbMaxLog": 0.0,
+    "xlabel": "X divergence [deg]",
+    "ylabel": "Y divergence [deg]",
+    "title": "divAtSampleOverview [At_SampleOverviewDIVVDIVH.pos]  - Diff (A - B), with:\n \nA=NMX_simplified_omp_maps_cpu_20261104_115236\nB=NMX_simplified_omp_maps_gpu_20261104_115236\nDiff: +0.00%\n \nDivergence monitor\nI = 0.0 Err = 19592.797535829333 N = 189\n NMX_simplified_omp_maps_cpu_20261104_115236: X0=-2.97E-03; dX=2.31E-02; Y0=4.71E-03; dY=5.84E-02;\nNMX_simplified_omp_maps_gpu_20261104_115236: X0=-2.97E-03; dX=2.31E-02; Y0=4.71E-03; dY=5.84E-02;"
+};
+  var plt = new Plot2D(params, d3.select("body").append("svg"), logscale=false);
+
+  plt.rgstrMouseClickPlot( () => { console.log("click"); } );
+  plt.rgstrMouseCtrlClickPlot( () => { console.log("ctrl click"); } );
+  plt.rgstrMouseRClickPlot( () => { console.log("right click"); } );
+</script>
+<p>
+<a href="diff_At_SampleOverviewDIVVDIVH.pos">Download difference data (McCode format): diff_At_SampleOverviewDIVVDIVH.pos</a>
+</body>
+</html>

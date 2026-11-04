@@ -1,0 +1,76 @@
+McCode diff simulation description file for diff_NMX_simplified_omp_maps_cpu_20261104_115236_vs_NMX_simplified_omp_maps_gpu_20261104_115236.
+Date:    Wed Nov 04 12:01:40 2026
+Program: mcplotdiff (McCode difference tool)
+
+begin instrument: diff_NMX_simplified_omp_maps_cpu_20261104_115236_vs_NMX_simplified_omp_maps_gpu_20261104_115236
+  File: diff_ed_omp_maps_cpu_20261104_115236_bdb558bb_vs_ed_omp_maps_gpu_20261104_115236_08d56109/diff_NMX_simplified_omp_maps_cpu_20261104_115236_vs_NMX_simplified_omp_maps_gpu_20261104_115236
+  Source: diff(NMX_simplified_omp_maps_cpu_20261104_115236, NMX_simplified_omp_maps_gpu_20261104_115236)
+  Trace_enabled: no
+  Default_main: yes
+  Embedded_runtime: yes
+end instrument
+
+begin simulation: diff_ed_omp_maps_cpu_20261104_115236_bdb558bb_vs_ed_omp_maps_gpu_20261104_115236_08d56109
+  Format: McCode with text headers
+  URL: http://www.mccode.org
+  Creator: mcplotdiff (McCode difference tool)
+  Instrument: diff(NMX_simplified_omp_maps_cpu_20261104_115236, NMX_simplified_omp_maps_gpu_20261104_115236)
+  Ncount: 0
+  Trace: no
+  Param: a=NMX_simplified_omp_maps_cpu_20261104_115236 b=NMX_simplified_omp_maps_gpu_20261104_115236
+end simulation
+
+begin data
+  Date: Wed Nov 04 12:01:40 2026
+  type: array_2d(90, 90)
+  component: psdSample
+  title: - Diff (A - B), with: A=NMX_simplified_omp_maps_cpu_20261104_115236 B=NMX_simplified_omp_maps_gpu_20261104_115236 Diff: +0.00% PSD monitor
+  values: 0 19592.79754 189
+  filename: diff_Sample_psd.dat
+end data
+
+begin data
+  Date: Wed Nov 04 12:01:40 2026
+  type: array_2d(100, 100)
+  component: divAtSample
+  title: - Diff (A - B), with: A=NMX_simplified_omp_maps_cpu_20261104_115236 B=NMX_simplified_omp_maps_gpu_20261104_115236 Diff: +0.00% Divergence monitor
+  values: 0 19592.79754 189
+  filename: diff_At_SampleDIVVDIVH.pos
+end data
+
+begin data
+  Date: Wed Nov 04 12:01:40 2026
+  type: array_2d(100, 100)
+  component: divAtSampleOverview
+  title: - Diff (A - B), with: A=NMX_simplified_omp_maps_cpu_20261104_115236 B=NMX_simplified_omp_maps_gpu_20261104_115236 Diff: +0.00% Divergence monitor
+  values: 0 19592.79754 189
+  filename: diff_At_SampleOverviewDIVVDIVH.pos
+end data
+
+begin data
+  Date: Wed Nov 04 12:01:40 2026
+  type: array_2d(500, 500)
+  component: toflSample
+  title: - Diff (A - B), with: A=NMX_simplified_omp_maps_cpu_20261104_115236 B=NMX_simplified_omp_maps_gpu_20261104_115236 Diff: +0.00% TOF-wavelength monitor
+  values: 0 15692.67937 145
+  filename: diff_Sample_tofl.dat
+end data
+
+begin data
+  Date: Wed Nov 04 12:01:40 2026
+  type: array_2d(100, 100)
+  component: divlSample
+  title: - Diff (A - B), with: A=NMX_simplified_omp_maps_cpu_20261104_115236 B=NMX_simplified_omp_maps_gpu_20261104_115236 Diff: +0.00% Wavelength-divergence monitor
+  values: 0 15692.67937 145
+  filename: diff_sample_divl.dat
+end data
+
+begin data
+  Date: Wed Nov 04 12:01:40 2026
+  type: array_2d(128, 128)
+  component: Structure
+  title: - Diff (A - B), with: A=NMX_simplified_omp_maps_cpu_20261104_115236 B=NMX_simplified_omp_maps_gpu_20261104_115236 Diff: +0.34% Intensity Position Position Monitor (Square) per bin
+  values: 0.1201277478 33.13566595 26
+  filename: diff_Structure.dat
+end data
+
