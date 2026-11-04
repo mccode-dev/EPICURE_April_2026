@@ -306,5 +306,55 @@ s = once(s, '#pragma omp target update to(_instrument_var)\n',
 s = once(s, '#pragma omp target update from(_instrument_var)\n',
          '#pragma omp target update from(_instrument_var)\n#ifdef OMPTARGET\n  mcmap_download();\n#endif\n')
 
+# --- 9. Single_crystal: no reflection list, in ALL builds --------------------------------
+# hkl_search_select is the only selection, on CPU too. Gone: tau_list, T[], hkl_search,
+# hkl_select, MCSX_REFL_SLIST_SIZE and its cap, and the CPU SPLIT reuse cache (it restored a
+# list; without one every SPLIT iteration searches again and draws its own reflection).
+# NUMERICAL CHANGE (all builds): every reachable reflection counts, stock stops at the cap;
+# the random stream differs from stock after the crystal.
+def cut(t, a, b):
+    """remove from the start of a up to the start of b"""
+    assert t.count(a) == 1, a
+    i = t.index(a)
+    return t[:i] + t[t.index(b, i):]
+
+
+s = once(s, '  #ifndef MCSX_REFL_SLIST_SIZE\n  #define MCSX_REFL_SLIST_SIZE 128\n  #endif\n\n', '')
+s = once(s, ' * CFLAGS=  -DMCSX_REFL_SLIST_SIZE=1024  @NCRYSTALFLAGS@', ' * CFLAGS=  @NCRYSTALFLAGS@')
+s = cut(s, '  /* hkl_search\n    search the HKL', '  #ifdef MCGPU\n  int\n  hkl_search_select')
+s = once(s, '  #ifdef MCGPU\n  int\n  hkl_search_select', '''  /* hkl_search_select
+    search the HKL reflections which are on the Ewald sphere, and keep one of them,
+    chosen with P_j = refl_j / sum refl by a weighted reservoir draw.
+    returns tau_count; updates coh_refl, coh_xsect and *Tsel
+   */
+  #pragma acc routine
+  int
+  hkl_search_select''')
+s = once(s, '''      /*protect against tau shortlist buffer overrrun*/
+      if (j == MCSX_REFL_SLIST_SIZE) {
+        break;
+      }
+''', '')
+s = once(s, '  } /* end hkl_search_select */\n  #endif\n', '  } /* end hkl_search_select */\n')
+s = cut(s, '\n  #pragma acc routine\n  int\n  hkl_select (struct tau_data* T', '\n  /* Functions for "reorientation", powder and PG modes */')
+s = once(s, '  struct tau_data  tau_list[MCSX_REFL_SLIST_SIZE];\n', '')
+s = s.replace('  #define tau_list (_comp->_parameters.tau_list)\n', '').replace('  #undef tau_list\n', '')
+s = cut(s, '                      #ifndef MCGPU\n  struct tau_data* T;', '  struct tau_data T[1];')
+s = once(s, '  struct tau_data T[1]; /* EPICURE: only the selected reflection, see hkl_search_select */\n  #endif\n',
+         '  struct tau_data T[1]; /* EPICURE: only the selected reflection, see hkl_search_select */\n')
+s = once(s, '    #ifndef MCGPU\n    T = tau_list;\n    hkl_info.type = type;\n', '    #ifndef MCGPU\n    hkl_info.type = type;\n')
+a = '        #ifndef MCGPU\n        /* in case we use \'SPLIT\''
+b = '      } else {\n        // When extra_order used'
+assert s.count(a) == 1
+i = s.index(a)
+s = s[:i] + '''        /* Max possible tau for this ki with 5*sigma delta-d/d cutoff. */
+        double tau_max = 2 * ki / (1 - 5 * hkl_info.m_delta_d_d);
+
+        tau_count = hkl_search_select (L, T, hkl_info.count, hkl_info.V0, kix, kiy, kiz, tau_max, &coh_refl, &coh_xsect, _particle);
+''' + s[s.index(b, i):]
+s = cut(s, '        sum = 0;\n        #ifdef MCGPU\n        j = 0; /* already selected', '        i = T[j].index;\n')
+s = once(s, '        i = T[j].index;\n', '        j = 0; /* already selected in hkl_search_select */\n        i = T[j].index;\n')
+s = cut(s, '    /* in case this instance is used in a SPLIT, we can recommend the\n', '    #ifdef USE_OPENCL\n    if (oclContext_SX')
+
 open(sys.argv[2], 'w').write(s)
 print(f'{len(inst)} instances; {len(calls_up)} heap uploads; {len(guards)} guards')
