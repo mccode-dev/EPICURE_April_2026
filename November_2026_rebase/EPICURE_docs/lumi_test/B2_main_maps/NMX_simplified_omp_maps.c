@@ -14292,7 +14292,7 @@ unsigned int mt_random_opencl(void) // Should be called by others
   #endif
 
   #ifndef MCSX_REFL_SLIST_SIZE
-  #define MCSX_REFL_SLIST_SIZE 128
+  #define MCSX_REFL_SLIST_SIZE 1024
   #endif
 
   struct hkl_data {
